@@ -1,0 +1,406 @@
+PROMPT DEFINITIVO PARA LA IA
+Rol que debe adoptar la IA:
+Actúa como un experimentado Arquitecto de Software e Ingeniero Full-Stack. Tu tarea es generar el código base completo, estructurado y funcional, para una aplicación web de gestión y aplicación de encuestas de satisfacción. El código debe seguir las mejores prácticas, ser escalable y estar listo para ejecutarse en un entorno de desarrollo con Windows 11, VS Code, Node.js, React y PostgreSQL.
+
+Contexto del Proyecto:
+Necesito una aplicación para realizar múltiples encuestas de satisfacción del cliente. Como base, tengo una encuesta modelo en formato PDF ("Encuesta de Satisfacción del Usuario en la Red de Hospitales Nacionales"). La aplicación debe permitir, en el futuro, cargar diferentes cuestionarios, pero inicialmente debe implementar fielmente la estructura y preguntas de este PDF.
+
+DECISIONES TOMADAS (Basadas en las 5 mejoras sugeridas):
+Autenticación del Panel Admin:
+
+Usaré JWT (JSON Web Tokens) con refresh token para mayor robustez.
+
+Credenciales iniciales: admin@example.com / __REDACTED_ADMIN_PASSWORD__ (configurable en .env)
+
+Estructura preparada para futura integración con roles de usuarios.
+
+Gestión de Respuestas en Admin:
+
+Funcionalidades: Ver (con paginación, búsqueda y filtros) y Exportar a CSV/Excel.
+
+NO incluir edición o borrado de respuestas en versión inicial (preservar integridad de datos).
+
+Botón de "marcar como revisada" para seguimiento administrativo.
+
+Campo "Servicio donde fue atendido":
+
+Lista desplegable de selección única con opciones: "Consulta Externa", "Emergencia", "Encamamiento".
+
+Si selecciona "Encamamiento", se activa la sección correspondiente (preguntas sobre ropa de cama y alimentos).
+
+Sección "Servicios de Apoyo":
+
+Mostrar checkboxes para que el usuario seleccione qué servicios recibió.
+
+Dinámicamente, mostrar las preguntas de satisfacción SOLO para los servicios seleccionados.
+
+Si no selecciona ninguno, omitir toda la sección.
+
+Estrategia de Entrega de Código:
+
+Primera respuesta: Entregar estructura completa del proyecto + backend completo (models, controllers, routes, seeders, middleware de autenticación).
+
+Segunda respuesta: Frontend completo (componentes, páginas, contexto/estado, servicios API, lógica condicional).
+
+Tercera respuesta: README.md detallado con instrucciones de instalación, configuración, y ejemplos de uso.
+
+REQUERIMIENTOS TÉCNICOS ESPECÍFICOS:
+Backend (Node.js + Express):
+API RESTful completa.
+
+Conexión a PostgreSQL usando Sequelize como ORM.
+
+Autenticación con JWT (middleware para rutas protegidas).
+
+Validación de datos con express-validator o Joi.
+
+Variables de entorno (.env) para DB, puerto, JWT_SECRET, etc.
+
+Estructura de carpetas:
+
+text
+backend/
+├── src/
+│   ├── config/
+│   │   └── database.js
+│   ├── controllers/
+│   │   ├── authController.js
+│   │   ├── encuestaController.js
+│   │   └── adminController.js
+│   ├── middlewares/
+│   │   ├── authMiddleware.js
+│   │   └── validationMiddleware.js
+│   ├── models/
+│   │   ├── Encuesta.js
+│   │   ├── Pregunta.js
+│   │   ├── OpcionRespuesta.js
+│   │   ├── RespuestaEncabezado.js
+│   │   ├── RespuestaDetalle.js
+│   │   └── Usuario.js (para admin)
+│   ├── routes/
+│   │   ├── authRoutes.js
+│   │   ├── encuestaRoutes.js
+│   │   └── adminRoutes.js
+│   ├── seeders/
+│   │   └── 20240101000000-encuestaUISAU.js
+│   ├── services/
+│   │   └── exportService.js
+│   └── app.js
+├── .env
+├── .env.example
+├── package.json
+└── server.js
+Frontend (React + Vite):
+SPA con React Router DOM (versión 6).
+
+Estado global con Zustand (ligero y fácil de usar).
+
+Estilos con TailwindCSS (responsive, moderno y rápido).
+
+Consumo de API con axios (interceptores para manejo de tokens).
+
+Estructura de carpetas:
+
+text
+frontend/
+├── public/
+├── src/
+│   ├── components/
+│   │   ├── common/
+│   │   │   ├── Header.jsx
+│   │   │   ├── Footer.jsx
+│   │   │   └── LoadingSpinner.jsx
+│   │   ├── encuesta/
+│   │   │   ├── Consentimiento.jsx
+│   │   │   ├── DatosDemograficos.jsx
+│   │   │   ├── PreguntasLikert.jsx
+│   │   │   ├── ServiciosApoyo.jsx
+│   │   │   ├── Encamamiento.jsx
+│   │   │   ├── PreguntasAbiertas.jsx
+│   │   │   └── BotonesNavegacion.jsx
+│   │   └── admin/
+│   │       ├── LoginForm.jsx
+│   │       ├── TablaRespuestas.jsx
+│   │       ├── FiltrosBusqueda.jsx
+│   │       └── BotonExportar.jsx
+│   ├── pages/
+│   │   ├── HomePage.jsx
+│   │   ├── EncuestaPage.jsx
+│   │   ├── AdminLoginPage.jsx
+│   │   └── AdminDashboardPage.jsx
+│   ├── store/
+│   │   ├── encuestaStore.js
+│   │   └── authStore.js
+│   ├── services/
+│   │   ├── api.js
+│   │   ├── encuestaService.js
+│   │   └── adminService.js
+│   ├── utils/
+│   │   ├── validaciones.js
+│   │   └── formateadores.js
+│   ├── App.jsx
+│   ├── main.jsx
+│   └── index.css
+├── index.html
+├── package.json
+├── vite.config.js
+└── tailwind.config.js
+Base de Datos (PostgreSQL):
+Nombre de la DB: encuestas_satisfaccion
+
+Modelos detallados (incluyendo restricciones y relaciones):
+
+Tabla usuarios (para admin):
+
+id (PK), email (unique), password_hash, rol, created_at, last_login
+
+Tabla encuestas:
+
+id (PK), nombre, descripcion, version, activa (boolean), fecha_creacion
+
+Tabla preguntas:
+
+id (PK), encuesta_id (FK), texto_pregunta, tipo_respuesta (enum: 'likert_5', 'texto', 'si_no', 'seleccion_unica', 'fecha', 'hora'), categoria, orden, dependencia (JSONB), requerido (boolean)
+
+Tabla opciones_respuesta:
+
+id (PK), pregunta_id (FK), valor_texto, puntaje (int, para likert), orden
+
+Tabla respuestas_encabezado:
+
+id (PK), encuesta_id (FK), fecha_inicio TIMESTAMP, fecha_fin TIMESTAMP,
+
+Campos demográficos: origen_etnico, edad (int), sexo, departamento, municipio, hospital, servicio (enum: 'consulta_externa', 'emergencia', 'encamamiento')
+
+Contacto: telefono (encriptado), email, acepta_contacto (boolean)
+
+Metadata: ip_address, user_agent, created_at
+
+Tabla respuestas_detalle:
+
+id (PK), respuesta_encabezado_id (FK), pregunta_id (FK), opcion_id (FK, nullable), respuesta_texto (TEXT), created_at
+
+FLUJO COMPLETO DE LA ENCUESTA (Frontend):
+Paso 1: Pantalla de Consentimiento
+Mostrar texto introductorio (extraído del PDF).
+
+Botones: "Acepto" (Sí) y "No acepto".
+
+Si "No acepto": Mostrar mensaje de agradecimiento y botón para salir.
+
+Paso 2: Datos Demográficos (todos obligatorios)
+Origen étnico (select)
+
+Edad (number input, 0-120)
+
+Sexo (radio: Masculino/Femenino/Otro)
+
+Departamento (select con departamentos de Guatemala)
+
+Municipio (select dinámico según departamento)
+
+Hospital (select o text input con lista de hospitales nacionales)
+
+Servicio (select: Consulta Externa / Emergencia / Encamamiento)
+
+Paso 3: Trato y Atención (todos Likert 5 puntos)
+Trato por personal médico
+
+Trato por personal de enfermería
+
+Trato por recepción/admisión
+
+Cortesía y respeto
+
+Llamado por nombre
+
+Paso 4: Servicios de Apoyo (condicional)
+Mostrar checkboxes con: Psicología, Nutrición, Trabajo Social, Laboratorio clínico, Imágenes diagnósticas, UISAU
+
+Por cada servicio seleccionado, mostrar pregunta Likert específica
+
+Validar que al menos un servicio esté seleccionado (opcional, mostrar warning)
+
+Paso 5: Comunicación e Información (Likert)
+Claridad de la información sobre su estado de salud
+
+Idioma en que se le brindó la información
+
+Explicación clara del diagnóstico y tratamiento
+
+Paso 6: Tiempo y Condiciones (Likert + horarios)
+Tiempo de espera
+
+Comodidad en sala de espera
+
+Limpieza del área atendido
+
+Limpieza en servicios sanitarios
+
+Ventilación e iluminación (espera)
+
+Ventilación e iluminación (atención)
+
+Privacidad y seguridad
+
+Hora de ingreso (time input)
+
+Hora de egreso (time input, debe ser > ingreso)
+
+Paso 7: Encamamiento (CONDICIONAL - solo si Servicio = "Encamamiento")
+Estado y limpieza de ropa de cama (Likert)
+
+Calidad y tiempo oportuno de alimentos (Likert)
+
+Paso 8: Satisfacción Global
+Nivel de satisfacción con el servicio recibido (Likert)
+
+¿Recomendaría este hospital? (Sí / Neutral / No)
+
+Paso 9: Preguntas Abiertas (textarea)
+Experiencia negativa (opcional)
+
+Experiencia positiva (opcional)
+
+Recomendaciones para mejorar (opcional)
+
+Paso 10: Confirmación y Envío
+Resumen de respuestas
+
+Checkbox de aceptación de contacto (si no se llenó antes)
+
+Botón "Enviar Encuesta"
+
+Feedback de éxito/error
+
+PANEL ADMINISTRATIVO:
+Ruta Protegida: /admin
+Login:
+
+Formulario con email/contraseña
+
+Validación JWT
+
+Almacenar token en localStorage (con expiración)
+
+Dashboard:
+
+Estadísticas rápidas (total respuestas, promedio satisfacción, % recomendación)
+
+Tabla de respuestas (paginated, 20 por página):
+
+Columnas: ID, Fecha, Edad, Sexo, Departamento, Hospital, Servicio, Satisfacción Global, Fecha envío
+
+Acciones: Ver detalle (modal con todas las respuestas)
+
+Filtros: Rango de fechas, Hospital, Servicio, Satisfacción
+
+Botón "Exportar a CSV/Excel" (descarga todas las respuestas filtradas)
+
+Detalle de Respuesta (Modal):
+
+Mostrar todos los campos del encabezado
+
+Mostrar todas las respuestas detalladas agrupadas por categoría
+
+Mostrar preguntas abiertas
+
+SEEDER INICIAL (Poblar la encuesta del PDF):
+Debes crear un seeder que inserte:
+
+Encuesta: "Encuesta de Satisfacción UISAU - Hospitales Nacionales 2024"
+
+Todas las preguntas (al menos 30+ preguntas) con sus:
+
+Texto exacto del PDF
+
+Tipo de respuesta (likert_5, texto, si_no, seleccion_unica, fecha, hora)
+
+Categoría para agrupar
+
+Orden correcto
+
+Dependencia (ej: preguntas de encamamiento dependen de servicio='encamamiento')
+
+Requerido (true/false según lógica del PDF)
+
+Opciones de respuesta para preguntas tipo:
+
+Likert 5: "Muy Satisfecho"(5), "Satisfecho"(4), "Neutral"(3), "Insatisfecho"(2), "Muy Insatisfecho"(1)
+
+Si/No: "Sí", "No"
+
+Recomendación: "Sí", "Neutral", "No"
+
+Usuario administrador: admin@example.com con contraseña encriptada "__REDACTED_ADMIN_PASSWORD__"
+
+INSTRUCCIONES ADICIONALES PARA LA IA:
+Manejo de Errores:
+Implementar try-catch en todos los controladores
+
+Respuestas de error consistentes: { success: false, message: "error description" }
+
+Validaciones robustas en backend Y frontend
+
+Seguridad:
+Encriptar teléfono en BD (usando crypto.createCipheriv)
+
+Sanitizar inputs para prevenir XSS/inyección SQL (Sequelize lo maneja)
+
+Rate limiting en rutas de envío de encuestas
+
+Helmet.js para headers de seguridad
+
+Performance:
+Índices en BD para campos de búsqueda (respuesta_encabezado.fecha_creacion, hospital, servicio)
+
+Paginación en todas las consultas del admin
+
+Lazy loading en componentes pesados
+
+Accesibilidad:
+Atributos ARIA en formularios
+
+Navegación por teclado
+
+Contraste de colores suficiente
+
+Testing (básico):
+Al menos 2 tests unitarios para funciones críticas (opcional pero deseable)
+
+FORMATO DE ENTREGA:
+Respuesta 1 (Backend + DB):
+
+Todos los archivos del backend con código completo
+
+Comandos de instalación y configuración
+
+Seeders funcionales
+
+Respuesta 2 (Frontend + Componentes):
+
+Todos los componentes React
+
+Store de Zustand configurada
+
+Servicios API implementados
+
+Estilos TailwindCSS completos
+
+Respuesta 3 (README + Instrucciones Finales):
+
+README.md con:
+
+Prerrequisitos (Node 18+, PostgreSQL 14+)
+
+Pasos de instalación (clonar, npm install, configurar .env, crear DB, correr migrations/seeders)
+
+Ejecutar backend (npm run dev)
+
+Ejecutar frontend (npm run dev)
+
+Credenciales admin
+
+Endpoints de API documentados
+
+Solución de problemas comunes
