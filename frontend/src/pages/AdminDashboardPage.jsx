@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
@@ -74,14 +74,14 @@ function AdminDashboardPage() {
     await Promise.all([cargarRespuestas(), cargarStats()]);
   };
 
-  const onExportar = async () => {
+  const onExportar = async (formato = 'xlsx') => {
     setLoadingExport(true);
     try {
-      const blob = await adminService.exportarCSV(filtros);
+      const blob = await adminService.exportarRespuestas(filtros, formato);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `encuestas_uisau_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `encuestas_uisau_${new Date().toISOString().slice(0, 10)}.${formato}`;
       a.click();
       window.URL.revokeObjectURL(url);
     } finally {
@@ -103,7 +103,7 @@ function AdminDashboardPage() {
             <h1 className="text-2xl font-bold text-brand-900">Panel Administrativo</h1>
             <p className="text-sm text-brand-800">Usuario: {user?.email}</p>
           </div>
-          <button className="btn-secondary" onClick={cerrarSesion}>Cerrar sesión</button>
+          <button className="btn-secondary" onClick={cerrarSesion}>Cerrar sesion</button>
         </section>
 
         {loading && <LoadingSpinner label="Cargando dashboard..." />}
@@ -111,16 +111,16 @@ function AdminDashboardPage() {
         {!loading && stats && (
           <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <article className="card-surface p-4"><p className="text-sm">Total respuestas</p><p className="text-2xl font-bold">{stats.totalRespuestas}</p></article>
-            <article className="card-surface p-4"><p className="text-sm">Última semana</p><p className="text-2xl font-bold">{stats.ultimaSemana}</p></article>
-            <article className="card-surface p-4"><p className="text-sm">Promedio satisfacción</p><p className="text-2xl font-bold">{stats.promedioSatisfaccion ?? '-'}</p></article>
-            <article className="card-surface p-4"><p className="text-sm">Recomendación Sí</p><p className="text-2xl font-bold">{stats.recomendacion?.si ?? 0}</p></article>
+            <article className="card-surface p-4"><p className="text-sm">Ultima semana</p><p className="text-2xl font-bold">{stats.ultimaSemana}</p></article>
+            <article className="card-surface p-4"><p className="text-sm">Promedio satisfaccion</p><p className="text-2xl font-bold">{stats.promedioSatisfaccion ?? '-'}</p></article>
+            <article className="card-surface p-4"><p className="text-sm">Recomendacion Si</p><p className="text-2xl font-bold">{stats.recomendacion?.si ?? 0}</p></article>
           </section>
         )}
 
         <FiltrosBusqueda filtros={filtros} onChange={onChangeFiltro} onBuscar={onBuscar} onLimpiar={onLimpiar} />
 
         <div className="flex justify-end">
-          <BotonExportar onClick={onExportar} loading={loadingExport} />
+          <BotonExportar onExportar={onExportar} loading={loadingExport} />
         </div>
 
         <TablaRespuestas
@@ -164,3 +164,5 @@ function AdminDashboardPage() {
 }
 
 export default AdminDashboardPage;
+
+

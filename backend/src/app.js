@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 const authRoutes = require('./routes/authRoutes');
 const encuestaRoutes = require('./routes/encuestaRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const reportesRoutes = require('./routes/reportesRoutes');
 
 const app = express();
 
@@ -45,6 +46,7 @@ const authLimiter = rateLimit({
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/encuesta', encuestaRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/reportes', reportesRoutes);
 
 // ── Health check ───────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

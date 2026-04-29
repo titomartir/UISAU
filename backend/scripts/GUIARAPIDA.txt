@@ -1,0 +1,163 @@
+╔═══════════════════════════════════════════════════════╗
+║  📋 GUÍA RÁPIDA: BACKUP Y RESTAURACIÓN DE BD         ║
+║  Encuesta UISAU                                       ║
+╚═══════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════════
+EN TU EQUIPO ACTUAL (DONDE ESTÁ LA BD)
+═══════════════════════════════════════════════════════
+
+⚙️  OPCIÓN 1: Método Automático (Recomendado)
+─────────────────────────────────────────────────
+
+Abre PowerShell en c:\UISAU\backend\scripts\ y ejecuta:
+
+    .\database-manager.ps1
+
+Sigue el menú:
+  1. Selecciona "1. Crear backup"
+  2. Presiona ENTER para usar valores por defecto
+  3. Ingresa la contraseña cuando pida
+
+✓ El archivo se guardará en: c:\UISAU\backend\database-backup\
+
+
+⚙️  OPCIÓN 2: Método Manual Rápido
+──────────────────────────────────
+
+Abre PowerShell y ejecuta:
+
+    $env:PGPASSWORD = "postgres"
+    pg_dump -h localhost -U postgres -d encuestas_satisfaccion > C:\Users\$env:USERNAME\Desktop\backup.sql
+    Remove-Item env:PGPASSWORD
+
+✓ El archivo aparecerá en tu Escritorio
+
+
+═══════════════════════════════════════════════════════
+PASO: COPIAR A MEMORIA USB
+═══════════════════════════════════════════════════════
+
+1. Busca el archivo .sql que creaste
+2. Cópialo a tu memoria USB
+3. ¡Listo! Llévalo al servidor
+
+
+═══════════════════════════════════════════════════════
+EN EL SERVIDOR (EQUIPO DESTINO)
+═══════════════════════════════════════════════════════
+
+⚙️  OPCIÓN 1: Método Automático (Recomendado)
+─────────────────────────────────────────────────
+
+1. Copia el archivo .sql de USB a una carpeta (ej: C:\temp\)
+
+2. Abre PowerShell en c:\UISAU\backend\scripts\ y ejecuta:
+
+    .\database-manager.ps1
+
+3. Selecciona "2. Restaurar backup"
+4. Ingresa la ruta del archivo: C:\temp\backup.sql
+5. Presiona ENTER para valores por defecto
+6. Ingresa contraseña
+7. Escribe "SI" para confirmar
+
+✓ La BD se restaurará automáticamente
+
+
+⚙️  OPCIÓN 2: Método Manual
+──────────────────────────
+
+Abre PowerShell y ejecuta:
+
+    $env:PGPASSWORD = "postgres"
+    
+    # Crear base de datos nueva
+    createdb -h localhost -U postgres encuestas_satisfaccion
+    
+    # Restaurar desde el archivo
+    psql -h localhost -U postgres encuestas_satisfaccion < C:\ruta\al\backup.sql
+    
+    Remove-Item env:PGPASSWORD
+
+✓ Listo
+
+
+═══════════════════════════════════════════════════════
+VERIFICAR QUE TODO FUNCIONÓ
+═══════════════════════════════════════════════════════
+
+Abre PowerShell y ejecuta:
+
+    $env:PGPASSWORD = "postgres"
+    psql -h localhost -U postgres -d encuestas_satisfaccion -c "\dt"
+    Remove-Item env:PGPASSWORD
+
+Deberías ver una tabla con estos campos:
+    Usuario
+    Encuesta
+    Pregunta
+    OpcionRespuesta
+    RespuestaEncabezado
+    RespuestaDetalle
+
+
+═══════════════════════════════════════════════════════
+⚠️  SOLUCIÓN DE PROBLEMAS
+═══════════════════════════════════════════════════════
+
+❌ "pg_dump: command not found"
+   → Instala PostgreSQL (incluye las herramientas CLI)
+
+
+❌ "password authentication failed"
+   → La contraseña es incorrecta
+   → Revisa el archivo .env en tu proyecto
+
+
+❌ "database does not exist"
+   → En restauración: el script lo crea automáticamente
+   → Si falla, crea manualmente: createdb -U postgres encuestas_satisfaccion
+
+
+❌ El archivo .sql es muy grande
+   → Comprime con: Compress-Archive -Path backup.sql -DestinationPath backup.zip
+   → Copia el .zip a USB
+   → En el servidor, descomprime antes de restaurar
+
+
+═══════════════════════════════════════════════════════
+📁 ARCHIVOS DISPONIBLES EN ESTE DIRECTORIO
+═══════════════════════════════════════════════════════
+
+✓ database-manager.ps1
+  → Script interactivo (menú fácil de usar)
+
+✓ backup-database.ps1
+  → Crear backups directamente
+
+✓ restore-database.ps1
+  → Restaurar backups desde USB
+
+✓ README-DATABASE-BACKUP.md
+  → Documentación completa
+
+
+═══════════════════════════════════════════════════════
+🚀 RESUMEN EN 3 PASOS
+═══════════════════════════════════════════════════════
+
+1. EQUIPO ACTUAL:
+   .\database-manager.ps1  →  Opción 1  →  Copiar a USB
+
+2. SERVIDOR:
+   .\database-manager.ps1  →  Opción 2  →  Restaurar desde USB
+
+3. VERIFICAR:
+   SELECT * FROM Usuario;
+   (La BD está listo, ¡inicia el servidor!)
+
+
+═══════════════════════════════════════════════════════
+
+¿Necesitas ayuda? Revisa README-DATABASE-BACKUP.md

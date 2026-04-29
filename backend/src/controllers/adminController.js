@@ -1,4 +1,4 @@
-const { Op } = require('sequelize');
+﻿const { Op } = require('sequelize');
 const {
   RespuestaEncabezado,
   RespuestaDetalle,
@@ -9,13 +9,13 @@ const exportService = require('../services/exportService');
 
 /**
  * GET /api/admin/stats
- * Estadísticas rápidas para el dashboard.
+ * EstadÃ­sticas rÃ¡pidas para el dashboard.
  */
 const getDashboardStats = async (req, res) => {
   try {
     const totalRespuestas = await RespuestaEncabezado.count();
 
-    // Distribución por servicio
+    // DistribuciÃ³n por servicio
     const { sequelize } = require('../models');
     const porServicio = await RespuestaEncabezado.findAll({
       attributes: [
@@ -26,7 +26,7 @@ const getDashboardStats = async (req, res) => {
       raw: true
     });
 
-    // Promedio de satisfacción global (categoría satisfaccion_global, tipo likert_5)
+    // Promedio de satisfacciÃ³n global (categorÃ­a satisfaccion_global, tipo likert_5)
     const pregSatisfaccion = await Pregunta.findOne({
       where: { categoria: 'satisfaccion_global', tipo_respuesta: 'likert_5' },
       order: [['orden', 'ASC']]
@@ -44,7 +44,7 @@ const getDashboardStats = async (req, res) => {
       }
     }
 
-    // Distribución de recomendación
+    // DistribuciÃ³n de recomendaciÃ³n
     const pregRecomendacion = await Pregunta.findOne({
       where: { categoria: 'satisfaccion_global', tipo_respuesta: 'seleccion_unica' }
     });
@@ -57,13 +57,13 @@ const getDashboardStats = async (req, res) => {
       for (const opcion of opciones) {
         const count = await RespuestaDetalle.count({ where: { opcion_id: opcion.id } });
         const texto = opcion.valor_texto.toLowerCase().trim();
-        if (texto === 'sí' || texto === 'si') recomendacion.si = count;
+        if (texto === 'sÃ­' || texto === 'si') recomendacion.si = count;
         else if (texto === 'no') recomendacion.no = count;
         else recomendacion.neutral = count;
       }
     }
 
-    // Respuestas de los últimos 7 días
+    // Respuestas de los Ãºltimos 7 dÃ­as
     const hace7dias = new Date();
     hace7dias.setDate(hace7dias.getDate() - 7);
     const ultimaSemana = await RespuestaEncabezado.count({
@@ -82,7 +82,7 @@ const getDashboardStats = async (req, res) => {
     });
   } catch (error) {
     console.error('[adminController.getDashboardStats]', error);
-    res.status(500).json({ success: false, message: 'Error al obtener estadísticas.' });
+    res.status(500).json({ success: false, message: 'Error al obtener estadÃ­sticas.' });
   }
 };
 
@@ -129,7 +129,7 @@ const getRespuestas = async (req, res) => {
       limit: limitNum,
       offset,
       order: [['created_at', 'DESC']],
-      // Nunca exponer el teléfono encriptado en el listado
+      // Nunca exponer el telÃ©fono encriptado en el listado
       attributes: { exclude: ['telefono_encriptado', 'user_agent'] }
     });
 
@@ -222,6 +222,7 @@ const marcarRevisada = async (req, res) => {
 const exportarRespuestas = async (req, res) => {
   try {
     const { fecha_inicio, fecha_fin, hospital, servicio } = req.query;
+    const formato = String(req.query.formato || req.query.format || 'csv').toLowerCase();
 
     const where = {};
     if (fecha_inicio && fecha_fin) {
@@ -254,13 +255,18 @@ const exportarRespuestas = async (req, res) => {
       order: [['created_at', 'DESC']]
     });
 
-    const csv = exportService.toCSV(respuestas);
+    const fecha = new Date().toISOString().slice(0, 10);
 
+    if (formato === 'xlsx') {
+      const xlsxBuffer = exportService.toXLSX(respuestas);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="encuestas_uisau_${fecha}.xlsx"`);
+      return res.send(xlsxBuffer);
+    }
+
+    const csv = exportService.toCSV(respuestas);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="encuestas_uisau_${new Date().toISOString().slice(0, 10)}.csv"`
-    );
+    res.setHeader('Content-Disposition', `attachment; filename="encuestas_uisau_${fecha}.csv"`);
     // Prefijo BOM para compatibilidad UTF-8 con Excel
     res.send('\uFEFF' + csv);
   } catch (error) {
@@ -276,3 +282,6 @@ module.exports = {
   marcarRevisada,
   exportarRespuestas
 };
+
+
+

@@ -3,6 +3,7 @@ import HomePage from './pages/HomePage';
 import EncuestaPage from './pages/EncuestaPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import ReportesPage from './pages/ReportesPage';
 import { useAuthStore } from './store/authStore';
 
 function ProtectedRoute({ children }) {
@@ -21,6 +22,14 @@ function App() {
         element={
           <ProtectedRoute>
             <AdminDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/reportes"
+        element={
+          <ProtectedRoute>
+            <ReportesPage />
           </ProtectedRoute>
         }
       />

@@ -1,4 +1,4 @@
-import api from './api';
+﻿import api from './api';
 
 export const adminService = {
   async login(email, password) {
@@ -26,11 +26,11 @@ export const adminService = {
     return data;
   },
 
-  async exportarCSV(params) {
-    const response = await api.get('/admin/respuestas/export', {
-      params,
+  async exportarRespuestas(params, formato = 'csv') {
+    const { data } = await api.get('/admin/respuestas/export', {
+      params: { ...params, formato },
       responseType: 'blob'
     });
-    return response.data;
+    return data;
   }
 };
