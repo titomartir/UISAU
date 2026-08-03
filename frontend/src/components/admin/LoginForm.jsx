@@ -1,8 +1,8 @@
 import { useState } from 'react';
 
 function LoginForm({ onSubmit, loading, error }) {
-  const [email, setEmail] = useState('ADMIN_EMAIL_REDACTED@example.invalid');
-  const [password, setPassword] = useState('__REDACTED_ADMIN_PASSWORD__');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();

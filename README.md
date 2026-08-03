@@ -92,8 +92,8 @@ JWT_REFRESH_EXPIRES_IN=7d
 
 ENCRYPTION_KEY=ClaveSeguraExactaDe32Caracteres!
 
-ADMIN_EMAIL=ADMIN_EMAIL_REDACTED@example.invalid
-ADMIN_PASSWORD=__REDACTED_ADMIN_PASSWORD__
+ADMIN_EMAIL=admin@dominio.tld
+ADMIN_PASSWORD=__SET_STRONG_ADMIN_PASSWORD__
 ```
 
 Notas:
@@ -132,8 +132,10 @@ Este comando crea/actualiza:
 - Usuario administrador inicial
 
 Credenciales iniciales:
-- Email: `ADMIN_EMAIL_REDACTED@example.invalid`
-- Password: `__REDACTED_ADMIN_PASSWORD__`
+- Email: el valor configurado en `ADMIN_EMAIL`
+- Password: el valor configurado en `ADMIN_PASSWORD`
+
+No uses credenciales por defecto en producción.
 
 ## 6. Ejecución del Proyecto
 

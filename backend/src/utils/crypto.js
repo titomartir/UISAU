@@ -8,9 +8,16 @@ const ALGORITHM = 'aes-256-cbc';
 const IV_LENGTH = 16;
 
 function getKey() {
-  const raw = process.env.ENCRYPTION_KEY || '__REDACTED_ENCRYPTION_KEY_32CH__';
-  // Asegurar exactamente 32 bytes (padding con ceros si es menor, truncar si mayor)
-  return Buffer.from(raw.padEnd(32, '0').slice(0, 32), 'utf8');
+  const raw = process.env.ENCRYPTION_KEY;
+  if (!raw) {
+    throw new Error('ENCRYPTION_KEY no definida en entorno.');
+  }
+
+  if (raw.length !== 32) {
+    throw new Error('ENCRYPTION_KEY debe tener exactamente 32 caracteres.');
+  }
+
+  return Buffer.from(raw, 'utf8');
 }
 
 /**

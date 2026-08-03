@@ -411,8 +411,12 @@ async function seed() {
     console.log(`✅ Opciones insertadas: ${opcionesInsertadas}`);
 
     // ── 3. Crear usuario administrador ────────────────────────────────────
-    const adminEmail = process.env.ADMIN_EMAIL || 'ADMIN_EMAIL_REDACTED@example.invalid';
-    const adminPassword = process.env.ADMIN_PASSWORD || '__REDACTED_ADMIN_PASSWORD__';
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    if (!adminEmail || !adminPassword) {
+      throw new Error('ADMIN_EMAIL y ADMIN_PASSWORD son obligatorios para ejecutar el seeder.');
+    }
 
     const [admin, adminCreado] = await Usuario.findOrCreate({
       where: { email: adminEmail },
@@ -425,7 +429,6 @@ async function seed() {
 
     if (adminCreado) {
       console.log(`✅ Usuario admin creado: ${adminEmail}`);
-      console.log(`   🔑 Contraseña inicial: ${adminPassword}`);
       console.log(`   ⚠️  Cambie la contraseña en producción.`);
     } else {
       console.log(`ℹ️  Usuario admin ya existe: ${adminEmail}`);

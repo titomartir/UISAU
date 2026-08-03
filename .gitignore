@@ -28,3 +28,18 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Backups y datos operacionales (no van al repositorio)
+backup base de datos/
+.backup-r3/
+audit-artifacts/
+
+# Herramientas históricas de auditoría (generadas, no fuente)
+tools/
+
+# Golden files generados en tests (se regeneran)
+backend/report-engine/tests/golden-files/*.xlsx
+backend/report-engine/tests/golden-files/*.json
+
+# Archivos temporales de sistema
+{
