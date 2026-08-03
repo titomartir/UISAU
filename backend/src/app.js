@@ -2,11 +2,14 @@ const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const { getServerConfig } = require('./config/env');
 
 const authRoutes = require('./routes/authRoutes');
 const encuestaRoutes = require('./routes/encuestaRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const reportesRoutes = require('./routes/reportesRoutes');
+
+const config = getServerConfig();
 
 const app = express();
 
@@ -15,7 +18,7 @@ app.use(helmet());
 
 // ── CORS ───────────────────────────────────────────────────────────────────
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: config.frontendUrl,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']

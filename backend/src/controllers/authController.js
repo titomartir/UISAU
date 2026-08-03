@@ -1,6 +1,9 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Usuario } = require('../models');
+const { getServerConfig } = require('../config/env');
+
+const config = getServerConfig();
 
 /**
  * Genera un access token (15m) y un refresh token (7d).
@@ -8,14 +11,14 @@ const { Usuario } = require('../models');
 function generateTokens(userId, email, rol) {
   const accessToken = jwt.sign(
     { id: userId, email, rol },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
+    config.jwt.secret,
+    { expiresIn: config.jwt.expiresIn }
   );
 
   const refreshToken = jwt.sign(
     { id: userId, email, rol, type: 'refresh' },
-    process.env.JWT_REFRESH_SECRET,
-    { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+    config.jwt.refreshSecret,
+    { expiresIn: config.jwt.refreshExpiresIn }
   );
 
   return { accessToken, refreshToken };
@@ -74,7 +77,7 @@ const refreshTokenHandler = async (req, res) => {
 
     let decoded;
     try {
-      decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+      decoded = jwt.verify(refreshToken, config.jwt.refreshSecret);
     } catch (err) {
       const msg = err.name === 'TokenExpiredError'
         ? 'Sesión expirada. Por favor inicie sesión nuevamente.'

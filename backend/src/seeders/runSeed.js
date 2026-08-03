@@ -5,9 +5,8 @@
  * Uso: node src/seeders/runSeed.js
  */
 
-require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
-
 const bcrypt = require('bcryptjs');
+const { getSeedConfig, ConfigValidationError } = require('../config/env');
 const { sequelize, Encuesta, Pregunta, OpcionRespuesta, Usuario } = require('../models');
 
 // ── Opciones reutilizables ─────────────────────────────────────────────────
@@ -335,7 +334,14 @@ const PREGUNTAS = [
 // ── Función principal del seeder ──────────────────────────────────────────
 async function seed() {
   try {
+    const config = getSeedConfig();
+
     console.log('🌱 Iniciando proceso de seed...');
+
+    if (!config.bootstrapEnabled) {
+      console.log('ℹ️  ADMIN_BOOTSTRAP_ENABLED=false. Se omite la creación del administrador inicial.');
+    }
+
     await sequelize.authenticate();
     console.log('✅ Conexión a la base de datos establecida.');
 
@@ -411,38 +417,38 @@ async function seed() {
     console.log(`✅ Opciones insertadas: ${opcionesInsertadas}`);
 
     // ── 3. Crear usuario administrador ────────────────────────────────────
-    const adminEmail = process.env.ADMIN_EMAIL;
-    const adminPassword = process.env.ADMIN_PASSWORD;
+    if (config.bootstrapEnabled) {
+      const adminEmail = config.admin.email;
+      const adminPassword = config.admin.password;
 
-    if (!adminEmail || !adminPassword) {
-      throw new Error('ADMIN_EMAIL y ADMIN_PASSWORD son obligatorios para ejecutar el seeder.');
-    }
+      const [admin, adminCreado] = await Usuario.findOrCreate({
+        where: { email: adminEmail },
+        defaults: {
+          email: adminEmail,
+          password_hash: await bcrypt.hash(adminPassword, 12),
+          rol: 'admin'
+        }
+      });
 
-    const [admin, adminCreado] = await Usuario.findOrCreate({
-      where: { email: adminEmail },
-      defaults: {
-        email: adminEmail,
-        password_hash: await bcrypt.hash(adminPassword, 12),
-        rol: 'admin'
+      if (adminCreado) {
+        console.log(`✅ Usuario admin creado: ${adminEmail}`);
+        console.log('   ⚠️  Cambie la contraseña en producción.');
+      } else {
+        console.log(`ℹ️  Usuario admin ya existe: ${adminEmail}`);
       }
-    });
 
-    if (adminCreado) {
-      console.log(`✅ Usuario admin creado: ${adminEmail}`);
-      console.log(`   ⚠️  Cambie la contraseña en producción.`);
-    } else {
-      console.log(`ℹ️  Usuario admin ya existe: ${adminEmail}`);
+      console.log(`👤 Admin email  : ${adminEmail}`);
     }
 
     console.log('\n🎉 Seed completado exitosamente.');
     console.log('────────────────────────────────────────────────');
     console.log(`📋 Encuesta ID  : ${encuesta.id}`);
     console.log(`📝 Total preguntas en DB: ${await Pregunta.count({ where: { encuesta_id: encuesta.id } })}`);
-    console.log(`👤 Admin email  : ${adminEmail}`);
     console.log('────────────────────────────────────────────────\n');
 
   } catch (error) {
-    console.error('❌ Error en el proceso de seed:', error);
+    const message = error instanceof ConfigValidationError ? error.message : error.message;
+    console.error(`❌ Error en el proceso de seed: ${message}`);
     process.exit(1);
   } finally {
     await sequelize.close();

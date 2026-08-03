@@ -3,21 +3,13 @@
  * La ENCRYPTION_KEY debe tener exactamente 32 caracteres en .env.
  */
 const crypto = require('crypto');
+const { requireEncryptionKey } = require('../config/env');
 
 const ALGORITHM = 'aes-256-cbc';
 const IV_LENGTH = 16;
 
 function getKey() {
-  const raw = process.env.ENCRYPTION_KEY;
-  if (!raw) {
-    throw new Error('ENCRYPTION_KEY no definida en entorno.');
-  }
-
-  if (raw.length !== 32) {
-    throw new Error('ENCRYPTION_KEY debe tener exactamente 32 caracteres.');
-  }
-
-  return Buffer.from(raw, 'utf8');
+  return Buffer.from(requireEncryptionKey(), 'utf8');
 }
 
 /**

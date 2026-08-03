@@ -1,4 +1,7 @@
 const jwt = require('jsonwebtoken');
+const { getServerConfig } = require('../config/env');
+
+const config = getServerConfig();
 
 /**
  * Middleware que verifica el JWT en el header Authorization: Bearer <token>
@@ -17,7 +20,7 @@ const authMiddleware = (req, res, next) => {
   const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, config.jwt.secret);
     req.user = decoded;
     next();
   } catch (error) {

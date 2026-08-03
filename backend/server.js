@@ -1,8 +1,8 @@
-require('dotenv').config();
+const { getServerConfig, ConfigValidationError } = require('./src/config/env');
+
+const config = getServerConfig();
 const app = require('./src/app');
 const { sequelize } = require('./src/models');
-
-const PORT = process.env.PORT || 3001;
 
 async function startServer() {
   try {
@@ -13,13 +13,14 @@ async function startServer() {
     await sequelize.sync({ alter: false });
     console.log('✅ Modelos sincronizados con la base de datos.');
 
-    app.listen(PORT, () => {
-      console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-      console.log(`📋 Ambiente: ${process.env.NODE_ENV}`);
-      console.log(`🏥 API Health: http://localhost:${PORT}/api/health`);
+    app.listen(config.port, config.host, () => {
+      console.log(`🚀 Servidor corriendo en http://${config.host}:${config.port}`);
+      console.log(`📋 Ambiente: ${config.nodeEnv}`);
+      console.log(`🏥 API Health: http://${config.host}:${config.port}/api/health`);
     });
   } catch (error) {
-    console.error('❌ No se pudo iniciar el servidor:', error);
+    const message = error instanceof ConfigValidationError ? error.message : error.message;
+    console.error(`❌ No se pudo iniciar el servidor: ${message}`);
     process.exit(1);
   }
 }
