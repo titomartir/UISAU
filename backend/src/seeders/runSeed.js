@@ -339,8 +339,8 @@ async function seed() {
     await sequelize.authenticate();
     console.log('✅ Conexión a la base de datos establecida.');
 
-    // Sincronizar tablas (crear si no existen)
-    await sequelize.sync({ alter: true });
+    // Sincronizar tablas sin alterar el esquema existente en producción.
+    await sequelize.sync();
     console.log('✅ Tablas sincronizadas.');
 
     // ── 1. Crear o encontrar la encuesta ─────────────────────────────────
