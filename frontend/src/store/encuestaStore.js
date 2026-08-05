@@ -18,6 +18,8 @@ export const useEncuestaStore = create((set) => ({
     municipio: DEFAULT_MUNICIPIO,
     hospital: DEFAULT_HOSPITAL,
     servicio: '',
+    forma_aplicacion: '',
+    idioma_predominante: '',
     telefono: '',
     email_contacto: '',
     acepta_contacto: false
@@ -48,6 +50,8 @@ export const useEncuestaStore = create((set) => ({
         municipio: DEFAULT_MUNICIPIO,
         hospital: DEFAULT_HOSPITAL,
         servicio: '',
+        forma_aplicacion: '',
+        idioma_predominante: '',
         telefono: '',
         email_contacto: '',
         acepta_contacto: false

@@ -6,6 +6,35 @@ const { handleValidationErrors } = require('../middlewares/validationMiddleware'
 
 const router = express.Router();
 
+const IDIOMAS_PERMITIDOS = [
+  'achi',
+  'akateko',
+  'awakateco',
+  'chalchiteko',
+  'chorti',
+  'chuj',
+  'itza',
+  'ixil',
+  'jakalteko',
+  'kaqchikel',
+  'kiche',
+  'mam',
+  'mopan',
+  'pocomam',
+  'poqomchi',
+  'qanjobal',
+  'qeqchi',
+  'sakapulteco',
+  'sipakapense',
+  'tektiteko',
+  'tzutujil',
+  'uspanteko',
+  'xinca',
+  'garifuna',
+  'espanol',
+  'otros'
+];
+
 // Rate limit estricto para el envío de encuestas (5 por hora por IP)
 const submitLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -48,6 +77,18 @@ router.post(
     body('encabezado.servicio')
       .isIn(['consulta_externa', 'emergencia', 'encamamiento'])
       .withMessage('Servicio inválido. Debe ser: consulta_externa, emergencia o encamamiento.'),
+    body('encabezado.forma_aplicacion')
+      .custom((value) => typeof value === 'string')
+      .withMessage('Forma en que se aplicó la encuesta inválida.')
+      .trim()
+      .isIn(['impreso', 'digital'])
+      .withMessage('Forma en que se aplicó la encuesta inválida. Debe ser: impreso o digital.'),
+    body('encabezado.idioma_predominante')
+      .custom((value) => typeof value === 'string')
+      .withMessage('Idioma predominante inválido.')
+      .trim()
+      .isIn(IDIOMAS_PERMITIDOS)
+      .withMessage('Idioma predominante inválido.'),
     body('encabezado.email_contacto')
       .optional({ checkFalsy: true })
       .isEmail().withMessage('Email de contacto inválido.')

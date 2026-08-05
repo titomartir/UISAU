@@ -1,3 +1,8 @@
+import {
+  FORMA_APLICACION_PERMITIDAS,
+  IDIOMAS_PREDOMINANTES_PERMITIDOS
+} from './demograficosCatalogos';
+
 export const validarDemograficos = (datos) => {
   const errores = {};
 
@@ -10,6 +15,17 @@ export const validarDemograficos = (datos) => {
   if (!datos.municipio) errores.municipio = 'Seleccione municipio';
   if (!datos.hospital) errores.hospital = 'Seleccione hospital';
   if (!datos.servicio) errores.servicio = 'Seleccione servicio';
+  if (!datos.forma_aplicacion) {
+    errores.forma_aplicacion = 'Seleccione forma en que se aplicó la encuesta';
+  } else if (!FORMA_APLICACION_PERMITIDAS.includes(datos.forma_aplicacion)) {
+    errores.forma_aplicacion = 'Forma en que se aplicó la encuesta inválida';
+  }
+
+  if (!datos.idioma_predominante) {
+    errores.idioma_predominante = 'Seleccione idioma predominante';
+  } else if (!IDIOMAS_PREDOMINANTES_PERMITIDOS.includes(datos.idioma_predominante)) {
+    errores.idioma_predominante = 'Idioma predominante inválido';
+  }
 
   if (datos.email_contacto && !/^\S+@\S+\.\S+$/.test(datos.email_contacto)) {
     errores.email_contacto = 'Correo inválido';

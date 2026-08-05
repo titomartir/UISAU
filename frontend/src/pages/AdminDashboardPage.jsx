@@ -8,6 +8,10 @@ import BotonExportar from '../components/admin/BotonExportar';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { adminService } from '../services/adminService';
 import { useAuthStore } from '../store/authStore';
+import {
+  FORMA_APLICACION_VALUE_A_LABEL,
+  IDIOMA_PREDOMINANTE_VALUE_A_LABEL
+} from '../utils/demograficosCatalogos';
 
 function AdminDashboardPage() {
   const navigate = useNavigate();
@@ -145,6 +149,8 @@ function AdminDashboardPage() {
                 <p><strong>Servicio:</strong> {detalle.servicio}</p>
                 <p><strong>Departamento:</strong> {detalle.departamento}</p>
                 <p><strong>Municipio:</strong> {detalle.municipio}</p>
+                <p><strong>Forma en que se aplicó la encuesta:</strong> {FORMA_APLICACION_VALUE_A_LABEL[detalle.forma_aplicacion] || 'No registrado'}</p>
+                <p><strong>Idioma predominante:</strong> {IDIOMA_PREDOMINANTE_VALUE_A_LABEL[detalle.idioma_predominante] || 'No registrado'}</p>
               </div>
               <div className="space-y-2">
                 {detalle.detalles?.map((d) => (

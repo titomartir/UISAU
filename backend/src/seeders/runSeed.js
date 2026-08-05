@@ -1,6 +1,6 @@
 /**
  * SEEDER - Encuesta de Satisfacción UISAU
- * Inserta: encuesta, 31 preguntas, opciones de respuesta y usuario admin.
+ * Inserta: encuesta, 33 preguntas, opciones de respuesta y usuario admin.
  *
  * Uso: node src/seeders/runSeed.js
  */
@@ -33,10 +33,64 @@ const OPCIONES_SERVICIOS_APOYO = [
   { valor_texto: 'UISAU',                   puntaje: null, orden: 6 }
 ];
 
+const OPCIONES_FORMA_APLICACION = [
+  { valor_texto: 'Impreso', puntaje: null, orden: 1 },
+  { valor_texto: 'Digital', puntaje: null, orden: 2 }
+];
+
+const OPCIONES_IDIOMA_PREDOMINANTE = [
+  { valor_texto: 'Achi', puntaje: null, orden: 1 },
+  { valor_texto: 'Akateko', puntaje: null, orden: 2 },
+  { valor_texto: 'Awakateco', puntaje: null, orden: 3 },
+  { valor_texto: 'Chalchiteko', puntaje: null, orden: 4 },
+  { valor_texto: 'Ch´orti', puntaje: null, orden: 5 },
+  { valor_texto: 'Chuj', puntaje: null, orden: 6 },
+  { valor_texto: 'Itza', puntaje: null, orden: 7 },
+  { valor_texto: 'Ixil', puntaje: null, orden: 8 },
+  { valor_texto: 'Jakalteko', puntaje: null, orden: 9 },
+  { valor_texto: 'Kaqchikel', puntaje: null, orden: 10 },
+  { valor_texto: 'K´iche´', puntaje: null, orden: 11 },
+  { valor_texto: 'Mam', puntaje: null, orden: 12 },
+  { valor_texto: 'Mopán', puntaje: null, orden: 13 },
+  { valor_texto: 'Pocomam', puntaje: null, orden: 14 },
+  { valor_texto: 'Poqomchi', puntaje: null, orden: 15 },
+  { valor_texto: 'Q´anjob´al', puntaje: null, orden: 16 },
+  { valor_texto: 'Q´eqchi´', puntaje: null, orden: 17 },
+  { valor_texto: 'Sakapulteco', puntaje: null, orden: 18 },
+  { valor_texto: 'Sipakapense', puntaje: null, orden: 19 },
+  { valor_texto: 'Tektiteko', puntaje: null, orden: 20 },
+  { valor_texto: 'Tz´utujil', puntaje: null, orden: 21 },
+  { valor_texto: 'Uspanteko', puntaje: null, orden: 22 },
+  { valor_texto: 'Xinca', puntaje: null, orden: 23 },
+  { valor_texto: 'Garífuna', puntaje: null, orden: 24 },
+  { valor_texto: 'Español', puntaje: null, orden: 25 },
+  { valor_texto: 'Otros', puntaje: null, orden: 26 }
+];
+
 // ── Definición de preguntas ─────────────────────────────────────────────────
 // dependencia: null = siempre visible
 // dependencia: { campo, valor } = visible solo si ese campo coincide
 const PREGUNTAS = [
+  // ── PASO 2: Datos demográficos complementarios MSPAS ────────────────────
+  {
+    orden: 32,
+    categoria: 'datos_demograficos',
+    tipo_respuesta: 'seleccion_unica',
+    texto_pregunta: 'Forma en que se aplicó la encuesta',
+    requerido: true,
+    dependencia: { campo: 'demografico', valor: 'forma_aplicacion' },
+    opciones: OPCIONES_FORMA_APLICACION
+  },
+  {
+    orden: 33,
+    categoria: 'datos_demograficos',
+    tipo_respuesta: 'seleccion_unica',
+    texto_pregunta: 'Idioma predominante',
+    requerido: true,
+    dependencia: { campo: 'demografico', valor: 'idioma_predominante' },
+    opciones: OPCIONES_IDIOMA_PREDOMINANTE
+  },
+
   // ── PASO 3: Trato y Atención ──────────────────────────────────────────────
   {
     orden: 1,
@@ -345,9 +399,8 @@ async function seed() {
     await sequelize.authenticate();
     console.log('✅ Conexión a la base de datos establecida.');
 
-    // Sincronizar tablas sin alterar el esquema existente en producción.
-    await sequelize.sync();
-    console.log('✅ Tablas sincronizadas.');
+    // El esquema debe existir por migraciones; este seeder no altera estructuras.
+    console.log('✅ Esquema encontrado (gestionado por migraciones).');
 
     // ── 1. Crear o encontrar la encuesta ─────────────────────────────────
     const [encuesta, encuestaCreada] = await Encuesta.findOrCreate({

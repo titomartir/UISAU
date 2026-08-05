@@ -68,6 +68,8 @@ const submitEncuesta = async (req, res) => {
         municipio: encabezado.municipio,
         hospital: encabezado.hospital,
         servicio: encabezado.servicio,
+        forma_aplicacion: encabezado.forma_aplicacion,
+        idioma_predominante: encabezado.idioma_predominante,
         telefono_encriptado: encrypt(encabezado.telefono),
         email_contacto: encabezado.email_contacto || null,
         acepta_contacto: encabezado.acepta_contacto || false,

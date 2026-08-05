@@ -12,6 +12,10 @@ import BotonesNavegacion from '../components/encuesta/BotonesNavegacion';
 import { encuestaService } from '../services/encuestaService';
 import { useEncuestaStore } from '../store/encuestaStore';
 import { validarDemograficos, validarHorario } from '../utils/validaciones';
+import {
+  FORMA_APLICACION_LABEL_A_VALUE,
+  IDIOMA_PREDOMINANTE_LABEL_A_VALUE
+} from '../utils/demograficosCatalogos';
 
 function normalizar(texto) {
   return (texto || '')
@@ -73,6 +77,14 @@ function EncuestaPage() {
   const paso7 = byCategoria('encamamiento');
   const paso8 = byCategoria('satisfaccion_global');
   const paso9 = byCategoria('preguntas_abiertas');
+  const paso2Demograficos = byCategoria('datos_demograficos');
+
+  const preguntaFormaAplicacion = paso2Demograficos.find(
+    (p) => p?.dependencia?.valor === 'forma_aplicacion'
+  );
+  const preguntaIdiomaPredominante = paso2Demograficos.find(
+    (p) => p?.dependencia?.valor === 'idioma_predominante'
+  );
 
   const preguntaServicios = paso4All.find((p) => p.tipo_respuesta === 'checkbox');
 
@@ -140,6 +152,30 @@ function EncuestaPage() {
     }
   };
 
+  const handleDemograficoChange = (campo, valor) => {
+    setDemografico(campo, valor);
+
+    if (campo === 'forma_aplicacion' && preguntaFormaAplicacion) {
+      const opcion = (preguntaFormaAplicacion.opciones || []).find(
+        (op) => FORMA_APLICACION_LABEL_A_VALUE[op.valor_texto] === valor
+      );
+      setRespuesta(preguntaFormaAplicacion.id, {
+        opcion_id: opcion?.id || null,
+        respuesta_texto: opcion?.valor_texto || null
+      });
+    }
+
+    if (campo === 'idioma_predominante' && preguntaIdiomaPredominante) {
+      const opcion = (preguntaIdiomaPredominante.opciones || []).find(
+        (op) => IDIOMA_PREDOMINANTE_LABEL_A_VALUE[op.valor_texto] === valor
+      );
+      setRespuesta(preguntaIdiomaPredominante.id, {
+        opcion_id: opcion?.id || null,
+        respuesta_texto: opcion?.valor_texto || null
+      });
+    }
+  };
+
   const handleSubmit = async () => {
     setError('');
     setOk('');
@@ -163,6 +199,8 @@ function EncuestaPage() {
           municipio: demograficos.municipio,
           hospital: demograficos.hospital,
           servicio: demograficos.servicio,
+          forma_aplicacion: demograficos.forma_aplicacion,
+          idioma_predominante: demograficos.idioma_predominante,
           telefono: demograficos.telefono,
           email_contacto: demograficos.email_contacto,
           acepta_contacto: demograficos.acepta_contacto
@@ -195,7 +233,7 @@ function EncuestaPage() {
         return (
           <DatosDemograficos
             data={demograficos}
-            onChange={setDemografico}
+            onChange={handleDemograficoChange}
             errores={erroresDemograficos}
           />
         );

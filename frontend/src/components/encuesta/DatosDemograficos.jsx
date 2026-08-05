@@ -1,4 +1,8 @@
 import { GUATEMALA_DEPARTAMENTOS, HOSPITALES_NACIONALES } from '../../utils/guatemalaData';
+import {
+  FORMA_APLICACION_OPCIONES,
+  IDIOMA_PREDOMINANTE_OPCIONES
+} from '../../utils/demograficosCatalogos';
 
 function DatosDemograficos({ data, onChange, errores = {} }) {
   const municipios = GUATEMALA_DEPARTAMENTOS[data.departamento] || [];
@@ -83,6 +87,28 @@ function DatosDemograficos({ data, onChange, errores = {} }) {
             <option value="encamamiento">Encamamiento</option>
           </select>
           {errores.servicio && <small className="text-red-600">{errores.servicio}</small>}
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span>Forma en que se aplicó la encuesta</span>
+          <select className="rounded-lg border p-2" value={data.forma_aplicacion} onChange={(e) => onChange('forma_aplicacion', e.target.value)}>
+            <option value="">Seleccione</option>
+            {FORMA_APLICACION_OPCIONES.map((op) => (
+              <option key={op.value} value={op.value}>{op.label}</option>
+            ))}
+          </select>
+          {errores.forma_aplicacion && <small className="text-red-600">{errores.forma_aplicacion}</small>}
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span>Idioma predominante</span>
+          <select className="rounded-lg border p-2" value={data.idioma_predominante} onChange={(e) => onChange('idioma_predominante', e.target.value)}>
+            <option value="">Seleccione</option>
+            {IDIOMA_PREDOMINANTE_OPCIONES.map((op) => (
+              <option key={op.value} value={op.value}>{op.label}</option>
+            ))}
+          </select>
+          {errores.idioma_predominante && <small className="text-red-600">{errores.idioma_predominante}</small>}
         </label>
 
         <label className="flex flex-col gap-1">

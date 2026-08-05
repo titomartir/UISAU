@@ -51,6 +51,14 @@ const RespuestaEncabezado = sequelize.define('RespuestaEncabezado', {
     type: DataTypes.ENUM('consulta_externa', 'emergencia', 'encamamiento'),
     allowNull: false
   },
+  forma_aplicacion: {
+    type: DataTypes.STRING(30),
+    allowNull: true
+  },
+  idioma_predominante: {
+    type: DataTypes.STRING(50),
+    allowNull: true
+  },
 
   // ── Datos de contacto (teléfono encriptado) ──────────────────────────────
   telefono_encriptado: {
