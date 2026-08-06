@@ -1,4 +1,12 @@
 ﻿const { Op } = require('sequelize');
+const {
+  buildGuatemalaRange,
+  generateAAvWorkbook,
+  HOSPITAL_OBJETIVO,
+  PeriodValidationError,
+  NoDataForPeriodError,
+  ServiceMappingError
+} = require('../services/mspasExportService');
 
 async function obtenerDatosReportes(req, res) {
   try {
@@ -136,7 +144,105 @@ async function obtenerResumenReportes(req, res) {
   }
 }
 
+async function cargarEncuestasPeriodoMspas(fechaInicio, fechaFin) {
+  const { RespuestaEncabezado } = require('../models');
+  const period = buildGuatemalaRange(fechaInicio, fechaFin);
+
+  const respuestas = await RespuestaEncabezado.findAll({
+    where: {
+      created_at: {
+        [Op.gte]: period.startUtc,
+        [Op.lte]: period.endUtc
+      }
+    },
+    attributes: [
+      'id',
+      'created_at',
+      'hospital',
+      'servicio',
+      'origen_etnico',
+      'sexo',
+      'forma_aplicacion',
+      'idioma_predominante'
+    ],
+    raw: true
+  });
+
+  return {
+    period,
+    respuestas
+  };
+}
+
+async function obtenerResumenMspasPeriodo(req, res) {
+  try {
+    const { fechaInicio, fechaFin } = req.query;
+    const { period, respuestas } = await cargarEncuestasPeriodoMspas(fechaInicio, fechaFin);
+    const exportResult = generateAAvWorkbook(respuestas, period.fechaInicio, period.fechaFin);
+
+    return res.json({
+      success: true,
+      mspas: exportResult.preview
+    });
+  } catch (error) {
+    if (error instanceof PeriodValidationError) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    if (error instanceof NoDataForPeriodError) {
+      return res.status(404).json({ success: false, message: error.message });
+    }
+    if (error instanceof ServiceMappingError) {
+      return res.status(422).json({
+        success: false,
+        message: error.message,
+        details: error.details
+      });
+    }
+
+    console.error('Error resumen MSPAS:', error);
+    return res.status(500).json({ success: false, message: 'Error al preparar el resumen MSPAS.' });
+  }
+}
+
+async function exportarMspasAAv(req, res) {
+  try {
+    const { fechaInicio, fechaFin } = req.query;
+    const { period, respuestas } = await cargarEncuestasPeriodoMspas(fechaInicio, fechaFin);
+    const exportResult = generateAAvWorkbook(respuestas, period.fechaInicio, period.fechaFin);
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${exportResult.fileName}"`);
+    res.setHeader('X-MSPAS-Hospital', HOSPITAL_OBJETIVO);
+    res.setHeader('X-MSPAS-Total', String(exportResult.counts.total));
+    res.setHeader('X-MSPAS-COEX', String(exportResult.counts.consulta_externa));
+    res.setHeader('X-MSPAS-EMER', String(exportResult.counts.emergencia));
+    res.setHeader('X-MSPAS-ENCAMAMIENTO', String(exportResult.counts.encamamiento));
+    res.setHeader('X-MSPAS-Warning-Count', String(exportResult.warningSummary.length));
+
+    return res.send(exportResult.buffer);
+  } catch (error) {
+    if (error instanceof PeriodValidationError) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    if (error instanceof NoDataForPeriodError) {
+      return res.status(404).json({ success: false, message: error.message });
+    }
+    if (error instanceof ServiceMappingError) {
+      return res.status(422).json({
+        success: false,
+        message: error.message,
+        details: error.details
+      });
+    }
+
+    console.error('Error export MSPAS:', error);
+    return res.status(500).json({ success: false, message: 'Error al exportar MSPAS.' });
+  }
+}
+
 module.exports = {
   obtenerDatosReportes,
-  obtenerResumenReportes
+  obtenerResumenReportes,
+  obtenerResumenMspasPeriodo,
+  exportarMspasAAv
 };

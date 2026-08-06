@@ -17,6 +17,10 @@ function ReportesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [filtrosActivos, setFiltrosActivos] = useState(null);
+  const [mspasResumen, setMspasResumen] = useState(null);
+  const [mspasError, setMspasError] = useState('');
+  const [mspasLoading, setMspasLoading] = useState(false);
+  const [mspasDownloading, setMspasDownloading] = useState(false);
 
   // Verificar autenticación
   useEffect(() => {
@@ -39,6 +43,8 @@ function ReportesPage() {
       const response = await reportesService.obtenerDatosReportes(filtros);
       setDatos(response);
       setFiltrosActivos(filtros);
+      setMspasResumen(null);
+      setMspasError('');
     } catch (err) {
       console.error('Error al cargar reportes:', err);
       
@@ -60,6 +66,63 @@ function ReportesPage() {
     }
   }, [user]);
 
+  const prepararResumenMspas = async () => {
+    setMspasError('');
+    setMspasResumen(null);
+
+    const fechaInicio = filtrosActivos?.fechaInicio || '';
+    const fechaFin = filtrosActivos?.fechaFin || '';
+
+    if (!fechaInicio || !fechaFin) {
+      setMspasError('Debe seleccionar fecha inicial y fecha final para exportar MSPAS.');
+      return;
+    }
+
+    setMspasLoading(true);
+    try {
+      const response = await reportesService.obtenerResumenMspas({ fechaInicio, fechaFin });
+      setMspasResumen(response.mspas);
+    } catch (err) {
+      setMspasError(err.response?.data?.message || 'No se pudo preparar el resumen MSPAS.');
+    } finally {
+      setMspasLoading(false);
+    }
+  };
+
+  const descargarMspas = async () => {
+    setMspasError('');
+    const fechaInicio = filtrosActivos?.fechaInicio || '';
+    const fechaFin = filtrosActivos?.fechaFin || '';
+
+    if (!fechaInicio || !fechaFin) {
+      setMspasError('Debe seleccionar fecha inicial y fecha final para exportar MSPAS.');
+      return;
+    }
+
+    setMspasDownloading(true);
+    try {
+      const { blob, fileName, warningCount } = await reportesService.exportarFormatoMspas({
+        fechaInicio,
+        fechaFin
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      if (warningCount > 0) {
+        setMspasError(`Exportación completada con ${warningCount} warning(s) técnico(s).`);
+      }
+    } catch (err) {
+      setMspasError(err.response?.data?.message || 'Error al descargar el formato MSPAS.');
+    } finally {
+      setMspasDownloading(false);
+    }
+  };
+
   if (!user || user.rol !== 'admin') {
     return null;
   }
@@ -78,6 +141,66 @@ function ReportesPage() {
 
         {/* Filtros */}
         <FiltrosReportes onAplicarFiltros={cargarReportes} cargando={loading} />
+
+        <section className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">Exportar formato MSPAS</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Hospital único para esta fase: Hospital Regional de Quiché
+          </p>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={prepararResumenMspas}
+              disabled={mspasLoading || mspasDownloading}
+              className="bg-emerald-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {mspasLoading ? 'Preparando...' : 'Preparar exportación MSPAS'}
+            </button>
+
+            <button
+              onClick={descargarMspas}
+              disabled={!mspasResumen || mspasLoading || mspasDownloading}
+              className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {mspasDownloading ? 'Descargando...' : 'Descargar archivo MSPAS'}
+            </button>
+          </div>
+
+          {mspasError && (
+            <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+              {mspasError}
+            </div>
+          )}
+
+          {mspasResumen && (
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+              <div className="rounded-md border p-3 bg-gray-50">
+                <p className="font-semibold">Hospital</p>
+                <p>{mspasResumen.hospital}</p>
+              </div>
+              <div className="rounded-md border p-3 bg-gray-50">
+                <p className="font-semibold">Período</p>
+                <p>{mspasResumen.periodo.fechaInicio} a {mspasResumen.periodo.fechaFin}</p>
+              </div>
+              <div className="rounded-md border p-3 bg-gray-50">
+                <p className="font-semibold">Total encuestas</p>
+                <p>{mspasResumen.totalEncuestas}</p>
+              </div>
+              <div className="rounded-md border p-3 bg-gray-50">
+                <p className="font-semibold">Consulta Externa</p>
+                <p>{mspasResumen.coexCount}</p>
+              </div>
+              <div className="rounded-md border p-3 bg-gray-50">
+                <p className="font-semibold">Emergencia</p>
+                <p>{mspasResumen.emerCount}</p>
+              </div>
+              <div className="rounded-md border p-3 bg-gray-50">
+                <p className="font-semibold">Encamamiento</p>
+                <p>{mspasResumen.encamamientoCount}</p>
+              </div>
+            </div>
+          )}
+        </section>
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
