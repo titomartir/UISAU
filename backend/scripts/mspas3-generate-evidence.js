@@ -20,7 +20,7 @@ function readLatestXlsx(dir) {
     .sort((a, b) => b.mtime - a.mtime);
 
   if (files.length === 0) {
-    throw new Error('No se encontró archivo MSPAS generado para evidencias.');
+    throw new Error('No se encontro archivo MSPAS generado para evidencias.');
   }
 
   return files[0].fullPath;
@@ -77,7 +77,7 @@ function buildRangeTable(ws, startCol, endCol, startRow, endRow) {
   const twb = XLSX.readFile(TEMPLATE_PATH, { cellFormula: true });
   const tws = twb.Sheets[twb.SheetNames[0]];
 
-  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:AV3');
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:FO3');
   const firstDataRow = 4;
   const lastDataRow = Math.min(range.e.r + 1, firstDataRow + 9);
 
@@ -101,19 +101,30 @@ function buildRangeTable(ws, startCol, endCol, startRow, endRow) {
     row: r,
     aTemplate: cell(tws, `A${r}`),
     aOutput: cell(ws, `A${r}`),
-    lTemplate: cell(tws, `L${r}`),
-    lOutput: cell(ws, `L${r}`),
-    qTemplate: cell(tws, `Q${r}`),
-    qOutput: cell(ws, `Q${r}`),
     avTemplate: cell(tws, `AV${r}`),
-    avOutput: cell(ws, `AV${r}`)
+    avOutput: cell(ws, `AV${r}`),
+    awTemplate: cell(tws, `AW${r}`),
+    awOutput: cell(ws, `AW${r}`),
+    buTemplate: cell(tws, `BU${r}`),
+    buOutput: cell(ws, `BU${r}`)
   }));
+
+  const bvSamples = [];
+  let postBuEmpty = true;
+  for (let r = firstDataRow; r <= lastDataRow; r += 1) {
+    if (cell(ws, `A${r}`) === '') break;
+    const rowSample = { row: r, BV: cell(ws, `BV${r}`), BW: cell(ws, `BW${r}`), FO: cell(ws, `FO${r}`) };
+    bvSamples.push(rowSample);
+    if (String(rowSample.BV).trim() || String(rowSample.BW).trim() || String(rowSample.FO).trim()) {
+      postBuEmpty = false;
+    }
+  }
 
   const html = `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Evidencia MSPAS A-AV</title>
+  <title>Evidencia MSPAS AW-BU</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 24px; color: #222; }
     h1,h2 { margin: 0 0 8px 0; }
@@ -126,20 +137,26 @@ function buildRangeTable(ws, startCol, endCol, startRow, endRow) {
   </style>
 </head>
 <body>
-  <h1>Evidencia MSPAS A-AV</h1>
+  <h1>Evidencia MSPAS AW-BU</h1>
   <section class="card">
     <p><strong>Archivo generado:</strong> ${htmlEscape(xlsxPath)}</p>
-    <p><strong>Hospital:</strong> Hospital Regional de Quiché</p>
-    <p><strong>Período:</strong> ${htmlEscape(periodo.fechaInicio)} a ${htmlEscape(periodo.fechaFin)}</p>
+    <p><strong>Hospital:</strong> Hospital Regional de Quiche</p>
+    <p><strong>Periodo:</strong> ${htmlEscape(periodo.fechaInicio)} a ${htmlEscape(periodo.fechaFin)}</p>
+    <p><strong>Verificacion BV+ vacio:</strong> ${postBuEmpty ? 'SI' : 'NO'}</p>
   </section>
 
   <section>
-    <h2>Captura de datos A-AV (primeras filas)</h2>
+    <h2>Bloque aprobado A-AV (primeras filas)</h2>
     ${buildRangeTable(ws, 'A', 'AV', firstDataRow, Math.max(firstDataRow, lastDataRow))}
   </section>
 
   <section>
-    <h2>Captura de fórmulas E/H/K</h2>
+    <h2>Bloque Likert AW-BU (primeras filas)</h2>
+    ${buildRangeTable(ws, 'AW', 'BU', firstDataRow, Math.max(firstDataRow, lastDataRow))}
+  </section>
+
+  <section>
+    <h2>Captura de formulas E/H/K</h2>
     <table>
       <thead><tr><th>Fila</th><th>E</th><th>H</th><th>K</th></tr></thead>
       <tbody>
@@ -149,19 +166,29 @@ function buildRangeTable(ws, startCol, endCol, startRow, endRow) {
   </section>
 
   <section>
-    <h2>Comparación con encabezado aprobado (filas 1-3)</h2>
+    <h2>Comparacion encabezado (A-AV y AW-BU) filas 1-3</h2>
     <table>
       <thead>
         <tr>
           <th>Fila</th>
           <th>A plantilla</th><th>A salida</th>
-          <th>L plantilla</th><th>L salida</th>
-          <th>Q plantilla</th><th>Q salida</th>
           <th>AV plantilla</th><th>AV salida</th>
+          <th>AW plantilla</th><th>AW salida</th>
+          <th>BU plantilla</th><th>BU salida</th>
         </tr>
       </thead>
       <tbody>
-        ${headerCompareRows.map((r) => `<tr><td>${r.row}</td><td>${htmlEscape(r.aTemplate)}</td><td>${htmlEscape(r.aOutput)}</td><td>${htmlEscape(r.lTemplate)}</td><td>${htmlEscape(r.lOutput)}</td><td>${htmlEscape(r.qTemplate)}</td><td>${htmlEscape(r.qOutput)}</td><td>${htmlEscape(r.avTemplate)}</td><td>${htmlEscape(r.avOutput)}</td></tr>`).join('')}
+        ${headerCompareRows.map((r) => `<tr><td>${r.row}</td><td>${htmlEscape(r.aTemplate)}</td><td>${htmlEscape(r.aOutput)}</td><td>${htmlEscape(r.avTemplate)}</td><td>${htmlEscape(r.avOutput)}</td><td>${htmlEscape(r.awTemplate)}</td><td>${htmlEscape(r.awOutput)}</td><td>${htmlEscape(r.buTemplate)}</td><td>${htmlEscape(r.buOutput)}</td></tr>`).join('')}
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Muestra BV+ (debe estar vacio)</h2>
+    <table>
+      <thead><tr><th>Fila</th><th>BV</th><th>BW</th><th>FO</th></tr></thead>
+      <tbody>
+        ${bvSamples.map((r) => `<tr><td>${r.row}</td><td>${htmlEscape(r.BV)}</td><td>${htmlEscape(r.BW)}</td><td>${htmlEscape(r.FO)}</td></tr>`).join('')}
       </tbody>
     </table>
   </section>
@@ -176,7 +203,9 @@ function buildRangeTable(ws, startCol, endCol, startRow, endRow) {
     htmlPath,
     periodo,
     formulaRows,
-    previewRows: { start: firstDataRow, end: lastDataRow }
+    previewRows: { start: firstDataRow, end: lastDataRow },
+    postBuEmpty,
+    bvSamples
   };
   fs.writeFileSync(path.join(OUT_DIR, 'mspas3-evidencia.json'), JSON.stringify(meta, null, 2));
 

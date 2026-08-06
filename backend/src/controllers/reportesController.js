@@ -145,10 +145,15 @@ async function obtenerResumenReportes(req, res) {
 }
 
 async function cargarEncuestasPeriodoMspas(fechaInicio, fechaFin) {
-  const { RespuestaEncabezado } = require('../models');
+  const {
+    RespuestaEncabezado,
+    RespuestaDetalle,
+    Pregunta,
+    OpcionRespuesta
+  } = require('../models');
   const period = buildGuatemalaRange(fechaInicio, fechaFin);
 
-  const respuestas = await RespuestaEncabezado.findAll({
+  const respuestasRaw = await RespuestaEncabezado.findAll({
     where: {
       created_at: {
         [Op.gte]: period.startUtc,
@@ -165,8 +170,36 @@ async function cargarEncuestasPeriodoMspas(fechaInicio, fechaFin) {
       'forma_aplicacion',
       'idioma_predominante'
     ],
-    raw: true
+    include: [
+      {
+        model: RespuestaDetalle,
+        as: 'detalles',
+        required: false,
+        attributes: ['id', 'pregunta_id', 'opcion_id', 'respuesta_texto'],
+        include: [
+          {
+            model: Pregunta,
+            as: 'Pregunta',
+            required: false,
+            attributes: ['id', 'texto_pregunta', 'categoria', 'orden', 'tipo_respuesta']
+          },
+          {
+            model: OpcionRespuesta,
+            as: 'opcion',
+            required: false,
+            attributes: ['id', 'valor_texto', 'puntaje']
+          }
+        ]
+      }
+    ],
+    order: [
+      ['created_at', 'ASC'],
+      ['id', 'ASC'],
+      [{ model: RespuestaDetalle, as: 'detalles' }, 'id', 'ASC']
+    ]
   });
+
+  const respuestas = respuestasRaw.map((row) => row.get({ plain: true }));
 
   return {
     period,

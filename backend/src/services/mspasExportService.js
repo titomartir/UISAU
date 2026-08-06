@@ -72,6 +72,54 @@ const IDIOMA_CODIGO_A_COLUMNA = {
 };
 
 const COLUMNA_AV = XLSX.utils.decode_col('AV');
+const COLUMNA_BU = XLSX.utils.decode_col('BU');
+const COLUMNA_BV = XLSX.utils.decode_col('BV');
+
+const LIKERT_COLUMNA_POR_ESCALA = {
+  MS: 0,
+  S: 1,
+  N: 2,
+  I: 3,
+  MI: 4
+};
+
+const LIKERT_BLOQUE_AW_BU = [
+  {
+    questionId: 1,
+    expectedOrden: 1,
+    expectedCategoria: 'trato_atencion',
+    expectedTextToken: 'personal medico',
+    columns: ['AW', 'AX', 'AY', 'AZ', 'BA']
+  },
+  {
+    questionId: 2,
+    expectedOrden: 2,
+    expectedCategoria: 'trato_atencion',
+    expectedTextToken: 'personal de enfermeria',
+    columns: ['BB', 'BC', 'BD', 'BE', 'BF']
+  },
+  {
+    questionId: 3,
+    expectedOrden: 3,
+    expectedCategoria: 'trato_atencion',
+    expectedTextToken: 'recepcion o admision',
+    columns: ['BG', 'BH', 'BI', 'BJ', 'BK']
+  },
+  {
+    questionId: 4,
+    expectedOrden: 4,
+    expectedCategoria: 'trato_atencion',
+    expectedTextToken: 'cortesia',
+    columns: ['BL', 'BM', 'BN', 'BO', 'BP']
+  },
+  {
+    questionId: 5,
+    expectedOrden: 5,
+    expectedCategoria: 'trato_atencion',
+    expectedTextToken: 'llamo por su nombre',
+    columns: ['BQ', 'BR', 'BS', 'BT', 'BU']
+  }
+];
 
 class PeriodValidationError extends Error {
   constructor(message) {
@@ -158,6 +206,37 @@ function mapIdiomaToColumn(rawIdioma) {
   return null;
 }
 
+function mapLikertToScale(rawValue) {
+  const normalized = normalizeCatalogValue(rawValue);
+  if (!normalized) return null;
+
+  if (normalized === 'muy satisfecho') return 'MS';
+  if (normalized === 'satisfecho') return 'S';
+  if (normalized === 'neutral' || normalized === 'neutral o indiferente' || normalized === 'indiferente') return 'N';
+  if (normalized === 'insatisfecho') return 'I';
+  if (normalized === 'muy insatisfecho') return 'MI';
+
+  return null;
+}
+
+function isQuestionDefinitionMatch(detail, spec) {
+  const pregunta = detail && detail.Pregunta ? detail.Pregunta : null;
+  if (!pregunta) return false;
+
+  const categoria = normalizeCatalogValue(pregunta.categoria);
+  const texto = normalizeCatalogValue(pregunta.texto_pregunta);
+
+  const expectedCategory = normalizeCatalogValue(spec.expectedCategoria);
+  const expectedToken = normalizeCatalogValue(spec.expectedTextToken);
+
+  return (
+    Number(pregunta.id) === spec.questionId &&
+    Number(pregunta.orden) === spec.expectedOrden &&
+    categoria === expectedCategory &&
+    texto.includes(expectedToken)
+  );
+}
+
 function getWorkbookTemplatePath() {
   return path.join(__dirname, '../../report-engine/mspas/mspas-header-template.xlsx');
 }
@@ -234,21 +313,139 @@ function buildWarnings() {
     etnicoNoReconocido: [],
     idiomaVacio: [],
     idiomaNoReconocido: [],
-    sexoNoReconocido: []
+    sexoNoReconocido: [],
+    likertRespuestaAusente: [],
+    likertValorDesconocido: [],
+    likertDuplicadoConsistente: [],
+    likertDuplicadoConflictivo: [],
+    likertDefinicionPreguntaNoValida: []
   };
+}
+
+function buildLikertStats() {
+  return LIKERT_BLOQUE_AW_BU.map((spec) => ({
+    preguntaId: spec.questionId,
+    columnas: spec.columns.join('-'),
+    validas: 0,
+    ausentes: 0,
+    desconocidas: 0,
+    duplicadosConsistentes: 0,
+    duplicadosConflictivos: 0
+  }));
+}
+
+function getLikertStat(stats, questionId) {
+  return stats.find((s) => s.preguntaId === questionId);
 }
 
 function asWarningSummary(warnings) {
   const summary = [];
   Object.entries(warnings).forEach(([key, ids]) => {
     if (!ids || ids.length === 0) return;
+
+    if (typeof ids[0] === 'object') {
+      summary.push({ tipo: key, total: ids.length, ejemplos: ids.slice(0, 20) });
+      return;
+    }
+
     summary.push({ tipo: key, total: ids.length, ids: ids.slice(0, 20) });
   });
   return summary;
 }
 
-function fillWorksheetRows(ws, rows, counts, warnings) {
+function clearColumnsRange(ws, row, startColIndex, endColIndex) {
+  for (let c = startColIndex; c <= endColIndex; c += 1) {
+    const ref = `${XLSX.utils.encode_col(c)}${row}`;
+    delete ws[ref];
+  }
+}
+
+function fillLikertBlockAwBu(ws, rowData, excelRow, warnings, likertStats) {
+  LIKERT_BLOQUE_AW_BU.forEach((spec) => {
+    const stat = getLikertStat(likertStats, spec.questionId);
+    clearOneHotRow(ws, excelRow, spec.columns);
+
+    const detallesPregunta = (rowData.detalles || []).filter((d) => Number(d.pregunta_id) === spec.questionId);
+
+    const detallesValidos = detallesPregunta.filter((detalle) => {
+      const isValid = isQuestionDefinitionMatch(detalle, spec);
+      if (!isValid) {
+        warnings.likertDefinicionPreguntaNoValida.push({
+          encuestaId: rowData.id,
+          preguntaId: spec.questionId,
+          detalleId: detalle.id || null,
+          motivo: 'definicion_pregunta_no_valida'
+        });
+      }
+      return isValid;
+    });
+
+    const evaluados = detallesValidos
+      .map((detalle) => {
+        const rawValue = detalle?.opcion?.valor_texto || detalle?.respuesta_texto || '';
+        return {
+          detalleId: detalle.id || null,
+          rawValue,
+          normalizedValue: normalizeCatalogValue(rawValue),
+          scale: mapLikertToScale(rawValue)
+        };
+      })
+      .filter((item) => item.normalizedValue);
+
+    if (evaluados.length === 0) {
+      stat.ausentes += 1;
+      warnings.likertRespuestaAusente.push({
+        encuestaId: rowData.id,
+        preguntaId: spec.questionId,
+        motivo: 'respuesta_ausente'
+      });
+      return;
+    }
+
+    if (evaluados.length > 1) {
+      const uniqueValues = new Set(evaluados.map((item) => item.normalizedValue));
+      if (uniqueValues.size === 1) {
+        stat.duplicadosConsistentes += 1;
+        warnings.likertDuplicadoConsistente.push({
+          encuestaId: rowData.id,
+          preguntaId: spec.questionId,
+          motivo: 'duplicado_consistente'
+        });
+      } else {
+        stat.duplicadosConflictivos += 1;
+        warnings.likertDuplicadoConflictivo.push({
+          encuestaId: rowData.id,
+          preguntaId: spec.questionId,
+          valores: Array.from(uniqueValues),
+          motivo: 'duplicado_conflictivo'
+        });
+        return;
+      }
+    }
+
+    const first = evaluados[0];
+    if (!first.scale) {
+      stat.desconocidas += 1;
+      warnings.likertValorDesconocido.push({
+        encuestaId: rowData.id,
+        preguntaId: spec.questionId,
+        valor: first.rawValue,
+        motivo: 'valor_desconocido'
+      });
+      return;
+    }
+
+    const offset = LIKERT_COLUMNA_POR_ESCALA[first.scale];
+    const targetColumn = spec.columns[offset];
+    setCellValue(ws, targetColumn, excelRow, 1);
+    stat.validas += 1;
+  });
+}
+
+function fillWorksheetRows(ws, rows, counts, warnings, likertStats) {
   const idiomaColumns = Object.values(IDIOMA_CODIGO_A_COLUMNA);
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:FO3');
+  const endColIndex = range.e.c;
 
   rows.forEach((row, index) => {
     const excelRow = 4 + index;
@@ -308,12 +505,14 @@ function fillWorksheetRows(ws, rows, counts, warnings) {
 
     clearOneHotRow(ws, excelRow, ['AT', 'AU', 'AV']);
     setCellValue(ws, SERVICIO_COLUMNAS[row.servicioCanonico], excelRow, 1);
+
+    fillLikertBlockAwBu(ws, row, excelRow, warnings, likertStats);
+    clearColumnsRange(ws, excelRow, COLUMNA_BV, endColIndex);
   });
 
   const lastRow = 3 + rows.length;
-  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:AV3');
   range.e.r = Math.max(range.e.r, lastRow - 1);
-  range.e.c = Math.max(range.e.c, COLUMNA_AV);
+  range.e.c = Math.max(range.e.c, COLUMNA_BU);
   ws['!ref'] = XLSX.utils.encode_range(range);
 }
 
@@ -321,7 +520,7 @@ function buildFileName(fechaInicio, fechaFin) {
   return `reporte_MSPAS_Hospital_Quiche_${fechaInicio}_${fechaFin}.xlsx`;
 }
 
-function buildExportPreview(fechaInicio, fechaFin, counts, warningSummary) {
+function buildExportPreview(fechaInicio, fechaFin, counts, warningSummary, likertStats) {
   return {
     hospital: HOSPITAL_OBJETIVO,
     periodo: {
@@ -332,6 +531,7 @@ function buildExportPreview(fechaInicio, fechaFin, counts, warningSummary) {
     coexCount: counts.consulta_externa,
     emerCount: counts.emergencia,
     encamamientoCount: counts.encamamiento,
+    likertAwBu: likertStats,
     warnings: warningSummary
   };
 }
@@ -344,6 +544,7 @@ function generateAAvWorkbook(respuestas, fechaInicio, fechaFin) {
 
   const counts = createCounts(rows);
   const warnings = buildWarnings();
+  const likertStats = buildLikertStats();
 
   const templatePath = getWorkbookTemplatePath();
   const workbook = XLSX.readFile(templatePath, {
@@ -355,7 +556,7 @@ function generateAAvWorkbook(respuestas, fechaInicio, fechaFin) {
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
 
-  fillWorksheetRows(sheet, rows, counts, warnings);
+  fillWorksheetRows(sheet, rows, counts, warnings, likertStats);
 
   const warningSummary = asWarningSummary(warnings);
 
@@ -368,9 +569,10 @@ function generateAAvWorkbook(respuestas, fechaInicio, fechaFin) {
   return {
     fileName: buildFileName(fechaInicio, fechaFin),
     buffer: outputBuffer,
-    preview: buildExportPreview(fechaInicio, fechaFin, counts, warningSummary),
+    preview: buildExportPreview(fechaInicio, fechaFin, counts, warningSummary, likertStats),
     rows,
     counts,
+    likertStats,
     warnings,
     warningSummary
   };

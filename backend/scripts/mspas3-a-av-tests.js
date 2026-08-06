@@ -16,6 +16,22 @@ const HOSPITAL_VARIANTS = new Set([
   'hospital regional de el quiche'
 ]);
 
+const LIKERT_SPECS = [
+  { questionId: 1, cols: ['AW', 'AX', 'AY', 'AZ', 'BA'] },
+  { questionId: 2, cols: ['BB', 'BC', 'BD', 'BE', 'BF'] },
+  { questionId: 3, cols: ['BG', 'BH', 'BI', 'BJ', 'BK'] },
+  { questionId: 4, cols: ['BL', 'BM', 'BN', 'BO', 'BP'] },
+  { questionId: 5, cols: ['BQ', 'BR', 'BS', 'BT', 'BU'] }
+];
+
+const SCALE_TO_INDEX = {
+  MS: 0,
+  S: 1,
+  N: 2,
+  I: 3,
+  MI: 4
+};
+
 function readEnvValue(filePath, key) {
   const content = fs.readFileSync(filePath, 'utf8');
   const line = content.split(/\r?\n/).find((l) => l.startsWith(`${key}=`));
@@ -124,6 +140,17 @@ function mapServicioCol(raw) {
   return null;
 }
 
+function mapLikertScale(raw) {
+  const n = norm(raw);
+  if (!n) return null;
+  if (n === 'muy satisfecho') return 'MS';
+  if (n === 'satisfecho') return 'S';
+  if (n === 'neutral' || n === 'neutral o indiferente' || n === 'indiferente') return 'N';
+  if (n === 'insatisfecho') return 'I';
+  if (n === 'muy insatisfecho') return 'MI';
+  return null;
+}
+
 function getCell(ws, ref) {
   const c = ws[ref];
   return c ? c.v : undefined;
@@ -138,13 +165,55 @@ function assert(cond, msg, bucket) {
   if (!cond) bucket.push(msg);
 }
 
+function getLikertExpectedForQuestion(detalles, questionId) {
+  const items = (detalles || []).filter((d) => Number(d.pregunta_id) === questionId);
+
+  if (items.length === 0) {
+    return { status: 'missing', scale: null };
+  }
+
+  const normalized = items
+    .map((d) => {
+      const raw = d?.opcion?.valor_texto || d?.respuesta_texto || '';
+      return {
+        raw,
+        normalized: norm(raw),
+        scale: mapLikertScale(raw)
+      };
+    })
+    .filter((x) => x.normalized);
+
+  if (normalized.length === 0) {
+    return { status: 'missing', scale: null };
+  }
+
+  if (normalized.length > 1) {
+    const unique = new Set(normalized.map((x) => x.normalized));
+    if (unique.size > 1) {
+      return { status: 'dup_conflict', scale: null };
+    }
+
+    if (!normalized[0].scale) {
+      return { status: 'unknown', scale: null };
+    }
+
+    return { status: 'dup_consistent', scale: normalized[0].scale };
+  }
+
+  if (!normalized[0].scale) {
+    return { status: 'unknown', scale: null };
+  }
+
+  return { status: 'ok', scale: normalized[0].scale };
+}
+
 (async () => {
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
   const root = path.resolve(__dirname, '../..');
   const envPath = path.join(root, '.env.production');
   const jwtSecret = readEnvValue(envPath, 'JWT_SECRET');
-  if (!jwtSecret) throw new Error('No se encontró JWT_SECRET en .env.production');
+  if (!jwtSecret) throw new Error('No se encontro JWT_SECRET en .env.production');
 
   const token = jwt.sign({ id: 1, email: 'admin@local.test', rol: 'admin' }, jwtSecret, { expiresIn: '15m' });
   const headers = { Authorization: `Bearer ${token}` };
@@ -154,19 +223,27 @@ function assert(cond, msg, bucket) {
   const all = listJson?.respuestas || [];
 
   const hospitalRows = all.filter((r) => HOSPITAL_VARIANTS.has(norm(r.hospital)));
-  if (hospitalRows.length === 0) throw new Error('No hay encuestas del Hospital Regional de Quiché para pruebas.');
+  if (hospitalRows.length === 0) throw new Error('No hay encuestas del Hospital Regional de Quiche para pruebas.');
 
   const fechas = hospitalRows.map((r) => gtDateIso(r.created_at)).sort();
   const fechaInicio = fechas[0];
   const fechaFin = fechas[fechas.length - 1];
 
-  const periodoRows = hospitalRows.filter((r) => isInGuatemalaDateRange(r.created_at, fechaInicio, fechaFin));
-  periodoRows.sort((a, b) => {
-    const ad = new Date(a.created_at).getTime();
-    const bd = new Date(b.created_at).getTime();
-    if (ad !== bd) return ad - bd;
-    return a.id - b.id;
-  });
+  const detailsById = new Map();
+  for (const row of hospitalRows) {
+    const dResp = await fetch(`${BASE_URL}/admin/respuestas/${row.id}`, { headers });
+    const dJson = await dResp.json();
+    detailsById.set(row.id, dJson?.respuesta?.detalles || []);
+  }
+
+  const periodoRows = hospitalRows
+    .filter((r) => isInGuatemalaDateRange(r.created_at, fechaInicio, fechaFin))
+    .sort((a, b) => {
+      const ad = new Date(a.created_at).getTime();
+      const bd = new Date(b.created_at).getTime();
+      if (ad !== bd) return ad - bd;
+      return a.id - b.id;
+    });
 
   const servicioCounts = { consulta_externa: 0, emergencia: 0, encamamiento: 0 };
   periodoRows.forEach((r) => {
@@ -196,28 +273,31 @@ function assert(cond, msg, bucket) {
   const tWs = tWb.Sheets[tWb.SheetNames[0]];
 
   const fails = [];
-  const warnings = [];
+  const notes = [];
 
-  // 1. Headers 1-3 intact
   for (let r = 1; r <= 3; r += 1) {
-    for (let c = XLSX.utils.decode_col('A'); c <= XLSX.utils.decode_col('AV'); c += 1) {
+    for (let c = XLSX.utils.decode_col('A'); c <= XLSX.utils.decode_col('BU'); c += 1) {
       const col = XLSX.utils.encode_col(c);
       const ref = `${col}${r}`;
-      const tv = getCell(tWs, ref);
-      const ov = getCell(ws, ref);
-      assert((tv ?? '') === (ov ?? ''), `Header diferente en ${ref}`, fails);
+      assert((getCell(tWs, ref) ?? '') === (getCell(ws, ref) ?? ''), `Header diferente en ${ref}`, fails);
     }
   }
 
-  // 2 and 3 data starts row 4 and row count
   const totalRows = periodoRows.length;
   assert(totalRows === (resumenJson?.mspas?.totalEncuestas || 0), 'Total de resumen no coincide con dataset.', fails);
 
-  // 4..15 row validations
   const idiomaCols = ['Q','R','S','T','U','V','W','X','Y','Z','AA','AB','AC','AD','AE','AF','AG','AH','AI','AJ','AK','AL','AM','AN','AO','AP'];
   const etnicoCols = ['M', 'N', 'O', 'P'];
   const sexoCols = ['AQ', 'AR', 'AS'];
   const srvCols = ['AT', 'AU', 'AV'];
+
+  const likertStats = {
+    ok: 0,
+    missing: 0,
+    unknown: 0,
+    dup_consistent: 0,
+    dup_conflict: 0
+  };
 
   for (let i = 0; i < totalRows; i += 1) {
     const rowNum = 4 + i;
@@ -264,22 +344,39 @@ function assert(cond, msg, bucket) {
     const srvCol = mapServicioCol(row.servicio);
     const srvMarked = srvCols.filter((col) => getCell(ws, `${col}${rowNum}`) === 1);
     assert(srvMarked.length === 1 && srvMarked[0] === srvCol, `One-hot servicio incorrecto fila ${rowNum}`, fails);
-  }
 
-  // 15. columns > AV empty
-  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:AV3');
-  for (let r = 4; r <= range.e.r + 1; r += 1) {
-    for (let c = XLSX.utils.decode_col('AW'); c <= range.e.c; c += 1) {
-      const ref = `${XLSX.utils.encode_col(c)}${r}`;
+    const detalles = detailsById.get(row.id) || [];
+    for (const spec of LIKERT_SPECS) {
+      const expected = getLikertExpectedForQuestion(detalles, spec.questionId);
+      likertStats[expected.status] += 1;
+
+      const marks = spec.cols.filter((col) => getCell(ws, `${col}${rowNum}`) === 1);
+      assert(marks.length <= 1, `Likert one-hot invalido Q${spec.questionId} fila ${rowNum}`, fails);
+
+      if (expected.scale) {
+        const expectedCol = spec.cols[SCALE_TO_INDEX[expected.scale]];
+        assert(marks.length === 1 && marks[0] === expectedCol, `Likert no coincide Q${spec.questionId} fila ${rowNum}`, fails);
+      } else {
+        assert(marks.length === 0, `Likert debio quedar vacio Q${spec.questionId} fila ${rowNum}`, fails);
+      }
+      const zeros = spec.cols.filter((col) => getCell(ws, `${col}${rowNum}`) === 0);
+      assert(zeros.length === 0, `Likert contiene 0 en Q${spec.questionId} fila ${rowNum}`, fails);
+    }
+
+    for (let c = XLSX.utils.decode_col('BV'); c <= XLSX.utils.decode_col('FO'); c += 1) {
+      const ref = `${XLSX.utils.encode_col(c)}${rowNum}`;
       const v = getCell(ws, ref);
       if (v !== undefined && v !== null && String(v).trim() !== '') {
-        fails.push(`Columna posterior a AV con dato en ${ref}`);
+        fails.push(`Columna posterior a BU con dato en ${ref}`);
         break;
       }
     }
   }
 
-  // 17 + 18
+  const tm = JSON.stringify(tWs['!merges'] || []);
+  const om = JSON.stringify(ws['!merges'] || []);
+  assert(tm === om, 'Los merges no coinciden con la plantilla.', fails);
+
   Object.entries(ws).forEach(([ref, cell]) => {
     if (ref.startsWith('!')) return;
     const v = cell && cell.v !== undefined ? String(cell.v) : '';
@@ -287,27 +384,18 @@ function assert(cond, msg, bucket) {
     if (v.includes('[object Object]')) fails.push(`Valor [object Object] en ${ref}`);
   });
 
-  // 19 + 21 inclusive filter dataset check
-  const outside = periodoRows.filter((r) => !isInGuatemalaDateRange(r.created_at, fechaInicio, fechaFin));
-  assert(outside.length === 0, 'Se detectaron registros fuera del periodo inclusivo.', fails);
-
-  // 20 no data period clear message
   const emptyResp = await fetch(`${BASE_URL}/reportes/mspas/resumen?fechaInicio=2099-01-01&fechaFin=2099-01-31`, { headers });
   const emptyJson = await emptyResp.json();
   assert(emptyResp.status === 404 && !!emptyJson?.message, 'Periodo sin encuestas no devolvio mensaje claro.', fails);
 
-  // Diversity checks requested for test file
-  const uniqueServices = new Set(periodoRows.map((r) => normalizeServicio(r.servicio)).filter(Boolean));
-  const uniqueIdiomas = new Set(periodoRows.map((r) => norm(r.idioma_predominante)).filter(Boolean));
-  const uniqueEtnicos = new Set(periodoRows.map((r) => norm(r.origen_etnico)).filter(Boolean));
-  const uniqueSexos = new Set(periodoRows.map((r) => norm(r.sexo)).filter(Boolean));
-  const uniqueForma = new Set(periodoRows.map((r) => norm(r.forma_aplicacion)).filter(Boolean));
+  const invalidResp = await fetch(`${BASE_URL}/reportes/mspas/resumen?fechaInicio=2026-08-10&fechaFin=2026-08-01`, { headers });
+  const invalidJson = await invalidResp.json();
+  assert(invalidResp.status === 400 && !!invalidJson?.message, 'Periodo invalido no devolvio mensaje claro.', fails);
 
-  if (uniqueServices.size < 3) warnings.push('El periodo no contiene los 3 servicios requeridos.');
-  if (uniqueIdiomas.size < 2) warnings.push('El periodo no contiene al menos 2 idiomas.');
-  if (uniqueEtnicos.size < 2) warnings.push('El periodo no contiene al menos 2 origenes etnicos.');
-  if (uniqueSexos.size < 2) warnings.push('El periodo no contiene al menos 2 opciones de sexo.');
-  if (!uniqueForma.has('impreso') || !uniqueForma.has('digital')) warnings.push('El periodo no contiene ambos tipos de forma (impreso/digital).');
+  notes.push({
+    endpointWarningCount: Number(exportResp.headers.get('x-mspas-warning-count') || 0),
+    likertStats
+  });
 
   const result = {
     success: fails.length === 0,
@@ -317,17 +405,19 @@ function assert(cond, msg, bucket) {
     counts: servicioCounts,
     checks: {
       headersIntact: !fails.some((f) => f.startsWith('Header diferente')),
-      rowCountMatch: !fails.some((f) => f.includes('Total de resumen')),
+      aAvPreserved: !fails.some((f) => f.includes('incorrecta fila')),
       formulasOk: !fails.some((f) => f.includes('Formula')),
-      postAvEmpty: !fails.some((f) => f.includes('Columna posterior a AV')),
+      likertAwBuOk: !fails.some((f) => f.includes('Likert')),
+      postBuEmpty: !fails.some((f) => f.includes('Columna posterior a BU')),
+      mergesIntact: !fails.some((f) => f.includes('merges')),
       noDiv0: !fails.some((f) => f.includes('#DIV/0!')),
       noObjectObject: !fails.some((f) => f.includes('[object Object]'))
     },
-    warnings,
+    notes,
     failures: fails
   };
 
-  const resultPath = path.join(OUT_DIR, 'mspas3-a-av-test-result.json');
+  const resultPath = path.join(OUT_DIR, 'mspas4b-aw-bu-test-result.json');
   fs.writeFileSync(resultPath, JSON.stringify(result, null, 2));
 
   console.log(JSON.stringify(result, null, 2));
