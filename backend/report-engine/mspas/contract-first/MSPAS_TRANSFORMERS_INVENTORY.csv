@@ -1,0 +1,8 @@
+transformer,status,reuseFromCurrent,currentEvidence,targetUse,gaps
+"OneHotTransformer","PARCIAL_EXISTENTE","SI","core/catalogMapper.js::buildOneHotAssignments","catalog_one_hot + catalog_code_one_hot","orquestacion por contrato y validacion de one-hot completo"
+"LikertTransformer","DERIVABLE","SI","reuse OneHotTransformer + catalog resolver","likert_one_hot","falta contrato por bloque y mapeo uniforme MS,S,N,I,MI"
+"YesNeutralNoTransformer","DERIVABLE","SI","reuse OneHotTransformer + 3-opcion catalogo","yes_no_neutral_one_hot","falta contrato de recomendacion"
+"DirectValueTransformer","NUEVO_REQUERIDO","PARCIAL","no modulo dedicado","identifier + direct","faltan normalizacion, casting y validacion escalar"
+"CalculatedValueTransformer","NUEVO_REQUERIDO","NO","solo evidencia en contrato (E,H,K)","calculated","falta guardia de division por cero y politica de persistencia de formulas"
+"ConditionalTransformer","NUEVO_REQUERIDO","PARCIAL","reglas condicionales en frontend, no en engine MSPAS","bloques aplicables por servicio/aplicabilidad","falta ejecucion condicional agnostica al origen"
+"CustomBusinessRuleTransformer","NUEVO_REQUERIDO","NO","N/A","casos excepcionales y compatibilidad MSPAS","falta contenedor de excepciones desacoplado"

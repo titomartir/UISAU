@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const XLSX = require('xlsx');
+const { generateAAvWorkbook } = require('../src/services/mspasExportService');
 
 const BASE_URL = process.env.MSPAS3_BASE_URL || 'http://127.0.0.1:15000/api';
 const OUT_DIR = process.env.MSPAS3_OUT_DIR
@@ -24,6 +25,49 @@ const LIKERT_SPECS = [
   { questionId: 5, cols: ['BQ', 'BR', 'BS', 'BT', 'BU'] }
 ];
 
+const SUPPORT_SPECS = [
+  { serviceKey: 'psicologia', questionId: 7, cols: ['BV', 'BW', 'BX', 'BY', 'BZ'] },
+  { serviceKey: 'nutricion', questionId: 8, cols: ['CA', 'CB', 'CC', 'CD', 'CE'] },
+  { serviceKey: 'trabajo_social', questionId: 9, cols: ['CF', 'CG', 'CH', 'CI', 'CJ'] },
+  { serviceKey: 'laboratorio', questionId: 10, cols: ['CK', 'CL', 'CM', 'CN', 'CO'] },
+  { serviceKey: 'imagenes', questionId: 11, cols: ['CP', 'CQ', 'CR', 'CS', 'CT'] },
+  { serviceKey: 'uisau', questionId: 12, cols: ['CU', 'CV', 'CW', 'CX', 'CY'] }
+];
+
+const FINAL_SPECS = [
+  { questionId: 13, cols: ['CZ', 'DA', 'DB', 'DC', 'DD'] },
+  { questionId: 14, cols: ['DE', 'DF', 'DG', 'DH', 'DI'] },
+  { questionId: 15, cols: ['DJ', 'DK', 'DL', 'DM', 'DN'] },
+  { questionId: 16, cols: ['DO', 'DP', 'DQ', 'DR', 'DS'] },
+  { questionId: 17, cols: ['DT', 'DU', 'DV', 'DW', 'DX'] },
+  { questionId: 18, cols: ['DY', 'DZ', 'EA', 'EB', 'EC'] },
+  { questionId: 19, cols: ['ED', 'EE', 'EF', 'EG', 'EH'] },
+  { questionId: 20, cols: ['EI', 'EJ', 'EK', 'EL', 'EM'] },
+  { questionId: 21, cols: ['EN', 'EO', 'EP', 'EQ', 'ER'] },
+  { questionId: 22, cols: ['ES', 'ET', 'EU', 'EV', 'EW'] },
+  { questionId: 25, cols: ['EX', 'EY', 'EZ', 'FA', 'FB'], appliesToService: 'encamamiento' },
+  { questionId: 26, cols: ['FC', 'FD', 'FE', 'FF', 'FG'], appliesToService: 'encamamiento' },
+  { questionId: 27, cols: ['FH', 'FI', 'FJ', 'FK', 'FL'] }
+];
+
+const RECOMMENDATION_SPEC = {
+  questionId: 28,
+  orden: 28,
+  categoria: 'satisfaccion_global',
+  texto: 'referiria el servicio',
+  tipo_respuesta: 'seleccion_unica',
+  cols: ['FM', 'FN', 'FO']
+};
+
+const SUPPORT_OPTION_TO_KEY = {
+  psicologia: 'psicologia',
+  nutricion: 'nutricion',
+  'trabajo social': 'trabajo_social',
+  'laboratorio clinico': 'laboratorio',
+  'imagenes diagnosticas': 'imagenes',
+  uisau: 'uisau'
+};
+
 const SCALE_TO_INDEX = {
   MS: 0,
   S: 1,
@@ -31,6 +75,169 @@ const SCALE_TO_INDEX = {
   I: 3,
   MI: 4
 };
+
+const COLUMNS_AFTER_FO = ['FP', 'FQ', 'FR'];
+
+let detailId = 900000;
+let rowId = 92000;
+
+function preguntaMeta(spec) {
+  return {
+    id: spec.questionId,
+    orden: spec.orden,
+    categoria: spec.categoria,
+    tipo_respuesta: spec.tipo_respuesta || 'likert_5',
+    texto_pregunta: spec.texto
+  };
+}
+
+function detalle(spec, valor) {
+  detailId += 1;
+  return {
+    id: detailId,
+    pregunta_id: spec.questionId,
+    opcion_id: null,
+    respuesta_texto: valor,
+    opcion: valor ? { id: detailId + 1000, valor_texto: valor, puntaje: null } : null,
+    Pregunta: preguntaMeta(spec)
+  };
+}
+
+function baseRow(servicioCanonico = 'consulta_externa') {
+  rowId += 1;
+  return {
+    id: rowId,
+    created_at: '2026-08-05T10:00:00.000Z',
+    hospital: 'Hospital Regional de Quiche',
+    servicio: servicioCanonico,
+    origen_etnico: 'Maya',
+    sexo: 'Femenino',
+    forma_aplicacion: 'digital',
+    idioma_predominante: 'espanol',
+    detalles: []
+  };
+}
+
+function buildApplicableDefaults(servicioCanonico) {
+  return Q_SPECS
+    .filter((spec) => !spec.appliesToService || spec.appliesToService === servicioCanonico)
+    .map((spec) => ({ spec, valor: SCALE_VALUES.MS }));
+}
+
+function buildRows() {
+  const rows = [];
+
+  for (const spec of Q_SPECS) {
+    for (const scale of Object.keys(SCALE_VALUES)) {
+      const servicio = spec.appliesToService || 'consulta_externa';
+      const row = baseRow(servicio);
+
+      for (const defaultAnswer of buildApplicableDefaults(servicio)) {
+        const value = defaultAnswer.spec.questionId === spec.questionId ? SCALE_VALUES[scale] : defaultAnswer.valor;
+        row.detalles.push(detalle(defaultAnswer.spec, value));
+      }
+
+      rows.push({
+        kind: 'scale',
+        questionId: spec.questionId,
+        scale,
+        servicio,
+        row
+      });
+    }
+  }
+
+  {
+    const row = baseRow('consulta_externa');
+    for (const d of buildApplicableDefaults('consulta_externa')) {
+      if (d.spec.questionId !== 13) row.detalles.push(detalle(d.spec, d.valor));
+    }
+    rows.push({ kind: 'missing', questionId: 13, row });
+  }
+
+  {
+    const row = baseRow('consulta_externa');
+    for (const d of buildApplicableDefaults('consulta_externa')) {
+      const v = d.spec.questionId === 14 ? 'Excelente' : d.valor;
+      row.detalles.push(detalle(d.spec, v));
+    }
+    rows.push({ kind: 'unknown', questionId: 14, row });
+  }
+
+  {
+    const row = baseRow('consulta_externa');
+    for (const d of buildApplicableDefaults('consulta_externa')) {
+      row.detalles.push(detalle(d.spec, d.valor));
+      if (d.spec.questionId === 15) row.detalles.push(detalle(d.spec, d.valor));
+    }
+    rows.push({ kind: 'dup_consistent', questionId: 15, row });
+  }
+
+  {
+    const row = baseRow('consulta_externa');
+    for (const d of buildApplicableDefaults('consulta_externa')) {
+      row.detalles.push(detalle(d.spec, d.valor));
+      if (d.spec.questionId === 16) row.detalles.push(detalle(d.spec, SCALE_VALUES.MI));
+    }
+    rows.push({ kind: 'dup_conflict', questionId: 16, row });
+  }
+
+  {
+    const row = baseRow('consulta_externa');
+    for (const d of buildApplicableDefaults('consulta_externa')) {
+      row.detalles.push(detalle(d.spec, d.valor));
+    }
+    rows.push({ kind: 'no_aplica', questionId: 25, row });
+  }
+
+  for (const value of ['Sí', 'Neutral', 'No']) {
+    const row = baseRow('consulta_externa');
+    for (const d of buildApplicableDefaults('consulta_externa')) {
+      row.detalles.push(detalle(d.spec, d.valor));
+    }
+    row.detalles.push(detalle(RECOMMENDATION_SPEC, value));
+    rows.push({ kind: 'recommendation', value, row });
+  }
+
+  {
+    const row = baseRow('consulta_externa');
+    for (const d of buildApplicableDefaults('consulta_externa')) {
+      row.detalles.push(detalle(d.spec, d.valor));
+    }
+    rows.push({ kind: 'recommendation_missing', row });
+  }
+
+  {
+    const row = baseRow('consulta_externa');
+    for (const d of buildApplicableDefaults('consulta_externa')) {
+      row.detalles.push(detalle(d.spec, d.valor));
+    }
+    row.detalles.push(detalle(RECOMMENDATION_SPEC, 'Tal vez'));
+    rows.push({ kind: 'recommendation_unknown', row });
+  }
+
+  {
+    const row = baseRow('consulta_externa');
+    for (const d of buildApplicableDefaults('consulta_externa')) {
+      row.detalles.push(detalle(d.spec, d.valor));
+    }
+    row.detalles.push(detalle(RECOMMENDATION_SPEC, 'Sí'));
+    row.detalles.push(detalle(RECOMMENDATION_SPEC, 'Sí'));
+    rows.push({ kind: 'recommendation_dup_consistent', row });
+  }
+
+  {
+    const row = baseRow('consulta_externa');
+    for (const d of buildApplicableDefaults('consulta_externa')) {
+      row.detalles.push(detalle(d.spec, d.valor));
+    }
+    row.detalles.push(detalle(RECOMMENDATION_SPEC, 'Sí'));
+    row.detalles.push(detalle(RECOMMENDATION_SPEC, 'No'));
+    rows.push({ kind: 'recommendation_dup_conflict', row });
+  }
+
+  return rows;
+}
 
 function readEnvValue(filePath, key) {
   const content = fs.readFileSync(filePath, 'utf8');
@@ -151,6 +358,14 @@ function mapLikertScale(raw) {
   return null;
 }
 
+function mapRecommendationCol(raw) {
+  const n = norm(raw);
+  if (n === 'si') return 'FM';
+  if (n === 'neutral') return 'FN';
+  if (n === 'no') return 'FO';
+  return null;
+}
+
 function getCell(ws, ref) {
   const c = ws[ref];
   return c ? c.v : undefined;
@@ -207,6 +422,18 @@ function getLikertExpectedForQuestion(detalles, questionId) {
   return { status: 'ok', scale: normalized[0].scale };
 }
 
+function getSelectedSupportServices(detalles) {
+  const set = new Set();
+  (detalles || [])
+    .filter((d) => Number(d.pregunta_id) === 6)
+    .forEach((d) => {
+      const raw = d?.opcion?.valor_texto || d?.respuesta_texto || '';
+      const key = SUPPORT_OPTION_TO_KEY[norm(raw)] || null;
+      if (key) set.add(key);
+    });
+  return set;
+}
+
 (async () => {
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
@@ -254,20 +481,15 @@ function getLikertExpectedForQuestion(detalles, questionId) {
   const resumenResp = await fetch(`${BASE_URL}/reportes/mspas/resumen?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`, { headers });
   const resumenJson = await resumenResp.json();
 
-  const exportResp = await fetch(`${BASE_URL}/reportes/mspas/export?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`, { headers });
-  if (!exportResp.ok) {
-    const txt = await exportResp.text();
-    throw new Error(`Error export MSPAS: HTTP ${exportResp.status} ${txt}`);
-  }
+  const rowsForExport = periodoRows.map((r) => ({
+    ...r,
+    detalles: detailsById.get(r.id) || []
+  }));
+  const exportResult = generateAAvWorkbook(rowsForExport, fechaInicio, fechaFin);
+  const outputPath = path.join(OUT_DIR, exportResult.fileName);
+  fs.writeFileSync(outputPath, exportResult.buffer);
 
-  const buffer = Buffer.from(await exportResp.arrayBuffer());
-  const dispo = exportResp.headers.get('content-disposition') || '';
-  const match = dispo.match(/filename="?([^\"]+)"?/i);
-  const fileName = match ? match[1] : `reporte_MSPAS_Hospital_Quiche_${fechaInicio}_${fechaFin}.xlsx`;
-  const outputPath = path.join(OUT_DIR, fileName);
-  fs.writeFileSync(outputPath, buffer);
-
-  const wb = XLSX.read(buffer, { type: 'buffer', cellFormula: true, cellStyles: true });
+  const wb = XLSX.read(exportResult.buffer, { type: 'buffer', cellFormula: true, cellStyles: true });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const tWb = XLSX.readFile(TEMPLATE_PATH, { cellFormula: true, cellStyles: true });
   const tWs = tWb.Sheets[tWb.SheetNames[0]];
@@ -276,7 +498,7 @@ function getLikertExpectedForQuestion(detalles, questionId) {
   const notes = [];
 
   for (let r = 1; r <= 3; r += 1) {
-    for (let c = XLSX.utils.decode_col('A'); c <= XLSX.utils.decode_col('BU'); c += 1) {
+    for (let c = XLSX.utils.decode_col('A'); c <= XLSX.utils.decode_col('FL'); c += 1) {
       const col = XLSX.utils.encode_col(c);
       const ref = `${col}${r}`;
       assert((getCell(tWs, ref) ?? '') === (getCell(ws, ref) ?? ''), `Header diferente en ${ref}`, fails);
@@ -293,6 +515,24 @@ function getLikertExpectedForQuestion(detalles, questionId) {
 
   const likertStats = {
     ok: 0,
+    missing: 0,
+    unknown: 0,
+    dup_consistent: 0,
+    dup_conflict: 0
+  };
+
+  const supportStats = {
+    valid: 0,
+    no_aplica: 0,
+    missing: 0,
+    unknown: 0,
+    dup_consistent: 0,
+    dup_conflict: 0
+  };
+
+  const finalStats = {
+    valid: 0,
+    no_aplica: 0,
     missing: 0,
     unknown: 0,
     dup_consistent: 0,
@@ -346,6 +586,7 @@ function getLikertExpectedForQuestion(detalles, questionId) {
     assert(srvMarked.length === 1 && srvMarked[0] === srvCol, `One-hot servicio incorrecto fila ${rowNum}`, fails);
 
     const detalles = detailsById.get(row.id) || [];
+    const selectedSupport = getSelectedSupportServices(detalles);
     for (const spec of LIKERT_SPECS) {
       const expected = getLikertExpectedForQuestion(detalles, spec.questionId);
       likertStats[expected.status] += 1;
@@ -363,11 +604,65 @@ function getLikertExpectedForQuestion(detalles, questionId) {
       assert(zeros.length === 0, `Likert contiene 0 en Q${spec.questionId} fila ${rowNum}`, fails);
     }
 
-    for (let c = XLSX.utils.decode_col('BV'); c <= XLSX.utils.decode_col('FO'); c += 1) {
+    for (const spec of SUPPORT_SPECS) {
+      const marks = spec.cols.filter((col) => getCell(ws, `${col}${rowNum}`) === 1);
+      const zeros = spec.cols.filter((col) => getCell(ws, `${col}${rowNum}`) === 0);
+      assert(zeros.length === 0, `Soporte contiene 0 en ${spec.serviceKey} fila ${rowNum}`, fails);
+
+      if (!selectedSupport.has(spec.serviceKey)) {
+        supportStats.no_aplica += 1;
+        assert(marks.length === 0, `Soporte no aplica debio quedar vacio ${spec.serviceKey} fila ${rowNum}`, fails);
+        continue;
+      }
+
+      const expected = getLikertExpectedForQuestion(detalles, spec.questionId);
+      if (expected.status === 'ok') supportStats.valid += 1;
+      if (expected.status === 'missing') supportStats.missing += 1;
+      if (expected.status === 'unknown') supportStats.unknown += 1;
+      if (expected.status === 'dup_consistent') supportStats.dup_consistent += 1;
+      if (expected.status === 'dup_conflict') supportStats.dup_conflict += 1;
+
+      assert(marks.length <= 1, `Soporte one-hot invalido ${spec.serviceKey} fila ${rowNum}`, fails);
+      if (expected.scale) {
+        const expectedCol = spec.cols[SCALE_TO_INDEX[expected.scale]];
+        assert(marks.length === 1 && marks[0] === expectedCol, `Soporte no coincide ${spec.serviceKey} fila ${rowNum}`, fails);
+      } else {
+        assert(marks.length === 0, `Soporte debio quedar vacio ${spec.serviceKey} fila ${rowNum}`, fails);
+      }
+    }
+
+    for (const spec of FINAL_SPECS) {
+      const marks = spec.cols.filter((col) => getCell(ws, `${col}${rowNum}`) === 1);
+      const zeros = spec.cols.filter((col) => getCell(ws, `${col}${rowNum}`) === 0);
+      assert(zeros.length === 0, `CZFL contiene 0 en Q${spec.questionId} fila ${rowNum}`, fails);
+
+      if (spec.appliesToService && normalizeServicio(row.servicio) !== spec.appliesToService) {
+        finalStats.no_aplica += 1;
+        assert(marks.length === 0, `CZFL no aplica debio quedar vacio Q${spec.questionId} fila ${rowNum}`, fails);
+        continue;
+      }
+
+      const expected = getLikertExpectedForQuestion(detalles, spec.questionId);
+      if (expected.status === 'ok') finalStats.valid += 1;
+      if (expected.status === 'missing') finalStats.missing += 1;
+      if (expected.status === 'unknown') finalStats.unknown += 1;
+      if (expected.status === 'dup_consistent') finalStats.dup_consistent += 1;
+      if (expected.status === 'dup_conflict') finalStats.dup_conflict += 1;
+
+      assert(marks.length <= 1, `CZFL one-hot invalido Q${spec.questionId} fila ${rowNum}`, fails);
+      if (expected.scale) {
+        const expectedCol = spec.cols[SCALE_TO_INDEX[expected.scale]];
+        assert(marks.length === 1 && marks[0] === expectedCol, `CZFL no coincide Q${spec.questionId} fila ${rowNum}`, fails);
+      } else {
+        assert(marks.length === 0, `CZFL debio quedar vacio Q${spec.questionId} fila ${rowNum}`, fails);
+      }
+    }
+
+    for (let c = XLSX.utils.decode_col('FP'); c <= XLSX.utils.decode_col('FR'); c += 1) {
       const ref = `${XLSX.utils.encode_col(c)}${rowNum}`;
       const v = getCell(ws, ref);
       if (v !== undefined && v !== null && String(v).trim() !== '') {
-        fails.push(`Columna posterior a BU con dato en ${ref}`);
+        fails.push(`Columna posterior a FO con dato en ${ref}`);
         break;
       }
     }
@@ -393,8 +688,15 @@ function getLikertExpectedForQuestion(detalles, questionId) {
   assert(invalidResp.status === 400 && !!invalidJson?.message, 'Periodo invalido no devolvio mensaje claro.', fails);
 
   notes.push({
-    endpointWarningCount: Number(exportResp.headers.get('x-mspas-warning-count') || 0),
-    likertStats
+    endpointWarningCount: exportResult.warningSummary.length,
+    likertStats,
+    supportStats,
+    previewLikertBvCy: exportResult.preview?.likertBvCy || []
+  });
+
+  notes.push({
+    finalStats,
+    previewLikertCzFl: exportResult.preview?.likertCzFl || []
   });
 
   const result = {
@@ -408,7 +710,10 @@ function getLikertExpectedForQuestion(detalles, questionId) {
       aAvPreserved: !fails.some((f) => f.includes('incorrecta fila')),
       formulasOk: !fails.some((f) => f.includes('Formula')),
       likertAwBuOk: !fails.some((f) => f.includes('Likert')),
-      postBuEmpty: !fails.some((f) => f.includes('Columna posterior a BU')),
+      likertBvCyOk: !fails.some((f) => f.includes('Soporte')),
+      likertCzFlOk: !fails.some((f) => f.includes('CZFL')),
+      recommendationOk: !fails.some((f) => f.includes('Recomendacion')),
+      postFoEmpty: !fails.some((f) => f.includes('Columna posterior a FO')),
       mergesIntact: !fails.some((f) => f.includes('merges')),
       noDiv0: !fails.some((f) => f.includes('#DIV/0!')),
       noObjectObject: !fails.some((f) => f.includes('[object Object]'))
@@ -417,7 +722,7 @@ function getLikertExpectedForQuestion(detalles, questionId) {
     failures: fails
   };
 
-  const resultPath = path.join(OUT_DIR, 'mspas4b-aw-bu-test-result.json');
+  const resultPath = path.join(OUT_DIR, 'mspas-final-cz-fl-test-result.json');
   fs.writeFileSync(resultPath, JSON.stringify(result, null, 2));
 
   console.log(JSON.stringify(result, null, 2));

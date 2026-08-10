@@ -106,17 +106,23 @@ function buildRangeTable(ws, startCol, endCol, startRow, endRow) {
     awTemplate: cell(tws, `AW${r}`),
     awOutput: cell(ws, `AW${r}`),
     buTemplate: cell(tws, `BU${r}`),
-    buOutput: cell(ws, `BU${r}`)
+    buOutput: cell(ws, `BU${r}`),
+    bvTemplate: cell(tws, `BV${r}`),
+    bvOutput: cell(ws, `BV${r}`),
+    cyTemplate: cell(tws, `CY${r}`),
+    cyOutput: cell(ws, `CY${r}`),
+    czTemplate: cell(tws, `CZ${r}`),
+    czOutput: cell(ws, `CZ${r}`)
   }));
 
-  const bvSamples = [];
-  let postBuEmpty = true;
+  const czSamples = [];
+  let postCyEmpty = true;
   for (let r = firstDataRow; r <= lastDataRow; r += 1) {
     if (cell(ws, `A${r}`) === '') break;
-    const rowSample = { row: r, BV: cell(ws, `BV${r}`), BW: cell(ws, `BW${r}`), FO: cell(ws, `FO${r}`) };
-    bvSamples.push(rowSample);
-    if (String(rowSample.BV).trim() || String(rowSample.BW).trim() || String(rowSample.FO).trim()) {
-      postBuEmpty = false;
+    const rowSample = { row: r, CZ: cell(ws, `CZ${r}`), DA: cell(ws, `DA${r}`), FO: cell(ws, `FO${r}`) };
+    czSamples.push(rowSample);
+    if (String(rowSample.CZ).trim() || String(rowSample.DA).trim() || String(rowSample.FO).trim()) {
+      postCyEmpty = false;
     }
   }
 
@@ -137,12 +143,12 @@ function buildRangeTable(ws, startCol, endCol, startRow, endRow) {
   </style>
 </head>
 <body>
-  <h1>Evidencia MSPAS AW-BU</h1>
+  <h1>Evidencia MSPAS BV-CY</h1>
   <section class="card">
     <p><strong>Archivo generado:</strong> ${htmlEscape(xlsxPath)}</p>
     <p><strong>Hospital:</strong> Hospital Regional de Quiche</p>
     <p><strong>Periodo:</strong> ${htmlEscape(periodo.fechaInicio)} a ${htmlEscape(periodo.fechaFin)}</p>
-    <p><strong>Verificacion BV+ vacio:</strong> ${postBuEmpty ? 'SI' : 'NO'}</p>
+    <p><strong>Verificacion CZ+ vacio:</strong> ${postCyEmpty ? 'SI' : 'NO'}</p>
   </section>
 
   <section>
@@ -151,8 +157,13 @@ function buildRangeTable(ws, startCol, endCol, startRow, endRow) {
   </section>
 
   <section>
-    <h2>Bloque Likert AW-BU (primeras filas)</h2>
+    <h2>Bloque Likert AW-BU (referencia previa, sin cambios)</h2>
     ${buildRangeTable(ws, 'AW', 'BU', firstDataRow, Math.max(firstDataRow, lastDataRow))}
+  </section>
+
+  <section>
+    <h2>Bloque Servicios de Apoyo BV-CY (primeras filas)</h2>
+    ${buildRangeTable(ws, 'BV', 'CY', firstDataRow, Math.max(firstDataRow, lastDataRow))}
   </section>
 
   <section>
@@ -166,7 +177,7 @@ function buildRangeTable(ws, startCol, endCol, startRow, endRow) {
   </section>
 
   <section>
-    <h2>Comparacion encabezado (A-AV y AW-BU) filas 1-3</h2>
+    <h2>Comparacion encabezado (A-BU, BV-CY y CZ) filas 1-3</h2>
     <table>
       <thead>
         <tr>
@@ -175,20 +186,23 @@ function buildRangeTable(ws, startCol, endCol, startRow, endRow) {
           <th>AV plantilla</th><th>AV salida</th>
           <th>AW plantilla</th><th>AW salida</th>
           <th>BU plantilla</th><th>BU salida</th>
+          <th>BV plantilla</th><th>BV salida</th>
+          <th>CY plantilla</th><th>CY salida</th>
+          <th>CZ plantilla</th><th>CZ salida</th>
         </tr>
       </thead>
       <tbody>
-        ${headerCompareRows.map((r) => `<tr><td>${r.row}</td><td>${htmlEscape(r.aTemplate)}</td><td>${htmlEscape(r.aOutput)}</td><td>${htmlEscape(r.avTemplate)}</td><td>${htmlEscape(r.avOutput)}</td><td>${htmlEscape(r.awTemplate)}</td><td>${htmlEscape(r.awOutput)}</td><td>${htmlEscape(r.buTemplate)}</td><td>${htmlEscape(r.buOutput)}</td></tr>`).join('')}
+        ${headerCompareRows.map((r) => `<tr><td>${r.row}</td><td>${htmlEscape(r.aTemplate)}</td><td>${htmlEscape(r.aOutput)}</td><td>${htmlEscape(r.avTemplate)}</td><td>${htmlEscape(r.avOutput)}</td><td>${htmlEscape(r.awTemplate)}</td><td>${htmlEscape(r.awOutput)}</td><td>${htmlEscape(r.buTemplate)}</td><td>${htmlEscape(r.buOutput)}</td><td>${htmlEscape(r.bvTemplate)}</td><td>${htmlEscape(r.bvOutput)}</td><td>${htmlEscape(r.cyTemplate)}</td><td>${htmlEscape(r.cyOutput)}</td><td>${htmlEscape(r.czTemplate)}</td><td>${htmlEscape(r.czOutput)}</td></tr>`).join('')}
       </tbody>
     </table>
   </section>
 
   <section>
-    <h2>Muestra BV+ (debe estar vacio)</h2>
+    <h2>Muestra CZ+ (debe estar vacio)</h2>
     <table>
-      <thead><tr><th>Fila</th><th>BV</th><th>BW</th><th>FO</th></tr></thead>
+      <thead><tr><th>Fila</th><th>CZ</th><th>DA</th><th>FO</th></tr></thead>
       <tbody>
-        ${bvSamples.map((r) => `<tr><td>${r.row}</td><td>${htmlEscape(r.BV)}</td><td>${htmlEscape(r.BW)}</td><td>${htmlEscape(r.FO)}</td></tr>`).join('')}
+        ${czSamples.map((r) => `<tr><td>${r.row}</td><td>${htmlEscape(r.CZ)}</td><td>${htmlEscape(r.DA)}</td><td>${htmlEscape(r.FO)}</td></tr>`).join('')}
       </tbody>
     </table>
   </section>
@@ -204,8 +218,8 @@ function buildRangeTable(ws, startCol, endCol, startRow, endRow) {
     periodo,
     formulaRows,
     previewRows: { start: firstDataRow, end: lastDataRow },
-    postBuEmpty,
-    bvSamples
+    postCyEmpty,
+    czSamples
   };
   fs.writeFileSync(path.join(OUT_DIR, 'mspas3-evidencia.json'), JSON.stringify(meta, null, 2));
 
